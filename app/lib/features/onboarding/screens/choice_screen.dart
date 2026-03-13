@@ -5,9 +5,14 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/remote_image.dart';
 
-class ChoiceScreen extends StatelessWidget {
+class ChoiceScreen extends StatefulWidget {
   const ChoiceScreen({super.key});
 
+  @override
+  State<ChoiceScreen> createState() => _ChoiceScreenState();
+}
+
+class _ChoiceScreenState extends State<ChoiceScreen> {
   static const _heroImage = 'https://www.figma.com/api/mcp/asset/94df70e2-44bb-4611-bb3b-71196d32f193';
   static const _options = [
     'Buy',
@@ -17,12 +22,19 @@ class ChoiceScreen extends StatelessWidget {
     'Just look around',
   ];
 
+  final Set<String> _selected = {};
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      body: SafeArea(
-        child: Stack(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) context.go(AppRoutes.welcome);
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.surface,
+        body: SafeArea(
+          child: Stack(
           children: [
             Positioned(
               left: -11,
@@ -38,11 +50,18 @@ class ChoiceScreen extends StatelessWidget {
             Positioned(
               right: 24,
               top: 40,
-              child: Text(
-                'Skip',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: const Color(0xFFF85A5A),
-                    ),
+              child: GestureDetector(
+                onTap: () => context.go(AppRoutes.home),
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Text(
+                    'Skip',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: const Color(0xFFF85A5A),
+                        ),
+                  ),
+                ),
               ),
             ),
             Padding(
@@ -72,7 +91,19 @@ class ChoiceScreen extends StatelessWidget {
                   for (final label in _options)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 16),
-                      child: _ChoiceRow(label: label),
+                      child: _ChoiceRow(
+                        label: label,
+                        selected: _selected.contains(label),
+                        onTap: () {
+                          setState(() {
+                            if (_selected.contains(label)) {
+                              _selected.remove(label);
+                            } else {
+                              _selected.add(label);
+                            }
+                          });
+                        },
+                      ),
                     ),
                   const SizedBox(height: 24),
                   Center(
@@ -87,42 +118,64 @@ class ChoiceScreen extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ));
   }
 }
 
 class _ChoiceRow extends StatelessWidget {
-  const _ChoiceRow({required this.label});
+  const _ChoiceRow({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
   final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 40,
-      width: 323,
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFB3D4FF)),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 10),
-          Container(
-            width: 18,
-            height: 18,
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFA1A5C1)),
-              borderRadius: BorderRadius.circular(5),
-            ),
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 48,
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: selected ? AppColors.primary : const Color(0xFFB3D4FF),
+            width: selected ? 2 : 1,
           ),
-          const SizedBox(width: 14),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.black87,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                color: selected ? AppColors.primary : Colors.transparent,
+                border: Border.all(
+                  color: selected ? AppColors.primary : const Color(0xFFA1A5C1),
+                  width: 1.5,
                 ),
-          ),
-        ],
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: selected
+                  ? const Icon(Icons.check, size: 14, color: Colors.white)
+                  : null,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.black87,
+                    ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

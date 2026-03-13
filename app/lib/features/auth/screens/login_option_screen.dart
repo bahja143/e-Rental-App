@@ -78,6 +78,17 @@ class _LoginOptionScreenState extends State<LoginOptionScreen> {
                 onPressed: () => context.push(AppRoutes.login),
               ),
               const SizedBox(height: 28),
+              GestureDetector(
+                onTap: () => context.go(AppRoutes.home),
+                child: Text(
+                  'Browse as guest',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: AppColors.greyMedium,
+                        decoration: TextDecoration.underline,
+                      ),
+                ),
+              ),
+              const SizedBox(height: 28),
               _buildOrDivider(context),
               const SizedBox(height: 20),
               Row(

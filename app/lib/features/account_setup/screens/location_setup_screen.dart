@@ -81,7 +81,7 @@ class _LocationSetupScreenState extends State<LocationSetupScreen> {
     if (!mounted) return;
     setState(() => _saving = false);
     if (ok) {
-      context.push(AppRoutes.accountSetupPreferable);
+      context.push(AppRoutes.accountSetupIntent);
     }
   }
 }

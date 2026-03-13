@@ -48,6 +48,21 @@ class AccountSetupRepository {
     }
   }
 
+  /// Saves user intent: buy, sale, rent, monitor_my_property, just_look_around
+  Future<bool> saveLookingFor(String lookingFor) async {
+    try {
+      final userId = await _currentUserId();
+      if (userId == null) return false;
+      await _apiClient.putJson('/users/$userId', body: {
+        'looking_for': lookingFor,
+        'looking_for_set': true,
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> savePreferences(List<String> propertyTypes) async {
     try {
       final userId = await _currentUserId();

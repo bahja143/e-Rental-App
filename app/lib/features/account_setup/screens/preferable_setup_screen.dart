@@ -31,7 +31,7 @@ class _PreferableSetupScreenState extends State<PreferableSetupScreen> {
     return SetupScaffold(
       title: 'What are you looking for?',
       description: 'Select your preferred property types.',
-      progress: 0.75,
+      progress: 0.8,
       onNext: _saving ? null : _onNext,
       nextLabel: _saving ? 'Saving...' : 'Next',
       child: Wrap(

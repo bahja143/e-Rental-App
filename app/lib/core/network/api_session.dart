@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'session_storage.dart';
+
 class ApiSession {
   ApiSession._();
 
@@ -9,6 +11,7 @@ class ApiSession {
 
   static void setToken(String? token) {
     bearerToken = (token == null || token.isEmpty) ? null : token;
+    SessionStorage.save(token: bearerToken);
     authState.value++;
   }
 
@@ -18,13 +21,25 @@ class ApiSession {
   }) {
     bearerToken = (token == null || token.isEmpty) ? null : token;
     currentUserId = (userId == null || userId.isEmpty) ? null : userId;
+    SessionStorage.save(token: bearerToken, userId: currentUserId);
     authState.value++;
   }
 
   static void clear() {
     bearerToken = null;
     currentUserId = null;
+    SessionStorage.clear(); // fire-and-forget
     authState.value++;
+  }
+
+  /// Restore session from storage. Call before runApp in main().
+  static Future<void> restore() async {
+    final stored = await SessionStorage.load();
+    bearerToken = stored['token'];
+    currentUserId = stored['userId'];
+    if (bearerToken != null && bearerToken!.isNotEmpty) {
+      authState.value++;
+    }
   }
 
   static bool get isAuthenticated => bearerToken != null && bearerToken!.isNotEmpty;

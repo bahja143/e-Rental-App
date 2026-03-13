@@ -18,6 +18,7 @@ import '../../features/profile/screens/profile_screen.dart';
 import '../../features/profile/screens/edit_profile_screen.dart';
 import '../../features/account_setup/screens/user_setup_screen.dart';
 import '../../features/account_setup/screens/location_setup_screen.dart';
+import '../../features/account_setup/screens/intent_setup_screen.dart';
 import '../../features/account_setup/screens/preferable_setup_screen.dart';
 import '../../features/account_setup/screens/payment_setup_screen.dart';
 import '../../features/account_setup/screens/account_success_screen.dart';
@@ -40,7 +41,9 @@ GoRouter createAppRouter() {
     refreshListenable: ApiSession.authState,
     redirect: (context, state) {
       final path = state.matchedLocation;
-      final isPublic = _publicPaths.contains(path);
+      final isPublic = _publicPaths.contains(path) ||
+          path.startsWith('${AppRoutes.estate}/') ||
+          path.startsWith('${AppRoutes.location}/');
       final isAuthenticated = ApiSession.isAuthenticated;
 
       if (!isAuthenticated && !isPublic) {
@@ -116,6 +119,7 @@ GoRouter createAppRouter() {
       GoRoute(path: AppRoutes.addEstate, builder: (_, __) => const AddEstateScreen()),
       GoRoute(path: AppRoutes.accountSetupUser, builder: (_, __) => const UserSetupScreen()),
       GoRoute(path: AppRoutes.accountSetupLocation, builder: (_, __) => const LocationSetupScreen()),
+      GoRoute(path: AppRoutes.accountSetupIntent, builder: (_, __) => const IntentSetupScreen()),
       GoRoute(path: AppRoutes.accountSetupPreferable, builder: (_, __) => const PreferableSetupScreen()),
       GoRoute(path: AppRoutes.accountSetupPayment, builder: (_, __) => const PaymentSetupScreen()),
       GoRoute(path: AppRoutes.accountSetupSuccess, builder: (_, __) => const AccountSuccessScreen()),
@@ -123,6 +127,7 @@ GoRouter createAppRouter() {
   );
 }
 
+/// Paths accessible without authentication (guest browsing of listings).
 const Set<String> _publicPaths = {
   AppRoutes.welcome,
   AppRoutes.choice,
@@ -131,10 +136,14 @@ const Set<String> _publicPaths = {
   AppRoutes.register,
   AppRoutes.otp,
   AppRoutes.faq,
+  AppRoutes.home,
+  AppRoutes.search,
+  AppRoutes.explore,
 };
 
 const Set<String> _authOnlyPaths = {
   AppRoutes.welcome,
+  AppRoutes.choice,
   AppRoutes.loginOption,
   AppRoutes.login,
   AppRoutes.register,

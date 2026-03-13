@@ -22,6 +22,7 @@ class AppRoutes {
 
   static const accountSetupUser = '/account-setup/user';
   static const accountSetupLocation = '/account-setup/location';
+  static const accountSetupIntent = '/account-setup/intent';
   static const accountSetupPreferable = '/account-setup/preferable';
   static const accountSetupPayment = '/account-setup/payment';
   static const accountSetupSuccess = '/account-setup/success';

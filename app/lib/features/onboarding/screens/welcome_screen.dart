@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/remote_image.dart';
 
 /// Welcome screen - Gallery grid with Hanti riyo branding
@@ -26,13 +27,11 @@ class WelcomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: GestureDetector(
-        onTap: () => context.go(AppRoutes.choice),
-        child: Stack(
+      body: Stack(
           children: [
             _buildGallery(context),
             _buildOverlay(),
-            const Positioned(
+            Positioned(
               left: -17,
               top: 148,
               width: 409,
@@ -41,15 +40,28 @@ class WelcomeScreen extends StatelessWidget {
                 child: RemoteImage(
                   url: _centerLogo,
                   fit: BoxFit.contain,
-                  errorWidget: SizedBox.shrink(),
+                  errorWidget: const SizedBox.shrink(),
                 ),
               ),
             ),
             _buildContent(context),
           ],
         ),
-      ),
     );
+  }
+
+  /// Figma layout (node 9:252): 3 columns, 9px gap, fixed per-cell aspect ratios
+  static const _gap = 9.0;
+  static const _figmaWidth = 109.0;
+
+  /// Per Figma: (col,row) -> height. Aspect ratio = 109/height.
+  static double _cellAspectRatio(int col, int row) {
+    const heights = [
+      [130.0, 140.0, 175.0], // column 0
+      [175.0, 130.0, 140.0], // column 1
+      [175.0, 140.0, 175.0], // column 2
+    ];
+    return _figmaWidth / heights[col][row];
   }
 
   Widget _buildGallery(BuildContext context) {
@@ -61,36 +73,39 @@ class WelcomeScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: List.generate(3, (col) {
           return Expanded(
-            child: Column(
-              children: List.generate(3, (row) {
-                final idx = col * 3 + row;
-                if (idx >= _galleryImages.length) return const SizedBox.shrink();
-                return Padding(
-                  padding: EdgeInsets.only(
-                    bottom: row < 2 ? 9 : 0,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: AspectRatio(
-                      aspectRatio: 109 / (row == 0 ? 130 : row == 1 ? 140 : 175),
-                      child: RemoteImage(
-                        url: _galleryImages[idx],
-                        fit: BoxFit.cover,
-                        placeholder: Container(
-                          color: AppColors.greySoft1,
-                          child: const Center(
-                            child: CircularProgressIndicator(strokeWidth: 2),
+            child: Padding(
+              padding: EdgeInsets.only(right: col < 2 ? _gap : 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(3, (row) {
+                  final idx = col * 3 + row;
+                  if (idx >= _galleryImages.length) return const SizedBox.shrink();
+                  return Padding(
+                    padding: EdgeInsets.only(bottom: row < 2 ? _gap : 0),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: AspectRatio(
+                        aspectRatio: _cellAspectRatio(col, row),
+                        child: RemoteImage(
+                          url: _galleryImages[idx],
+                          fit: BoxFit.cover,
+                          placeholder: Container(
+                            color: AppColors.greySoft1,
+                            child: const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
                           ),
-                        ),
-                        errorWidget: Container(
-                          color: AppColors.greySoft1,
-                          child: const Icon(Icons.home_work, color: AppColors.greyBarelyMedium),
+                          errorWidget: Container(
+                            color: AppColors.greySoft1,
+                            child: const Icon(Icons.home_work, color: AppColors.greyBarelyMedium),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                );
-              }),
+                  );
+                }),
+              ),
             ),
           );
         }),
@@ -111,7 +126,7 @@ class WelcomeScreen extends StatelessWidget {
             end: Alignment.bottomCenter,
             colors: [
               Colors.transparent,
-              Colors.black.withValues(alpha: 0.88),
+              Colors.black.withValues(alpha: 1),
             ],
           ),
         ),
@@ -120,38 +135,47 @@ class WelcomeScreen extends StatelessWidget {
   }
 
   Widget _buildContent(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
     return Positioned(
       left: 0,
       right: 0,
       bottom: 0,
       child: Container(
-        height: 244,
-        padding: const EdgeInsets.fromLTRB(24, 30, 24, 64),
+        height: 260 + bottomPadding,
+        padding: EdgeInsets.fromLTRB(24, 30, 24, 24 + bottomPadding),
         decoration: const BoxDecoration(
           color: AppColors.background,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(50)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(0)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              AppStrings.welcome,
-              style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                    color: AppColors.textAccent.withValues(alpha: 0.8),
-                    fontSize: 32,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              AppStrings.tagline,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppColors.greyMedium,
-                    fontSize: 16,
-                    height: 1.5,
-                  ),
-            ),
-          ],
+        child: SingleChildScrollView(
+          padding: EdgeInsets.zero,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                AppStrings.welcome,
+                style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                  color: AppColors.textAccent.withValues(alpha: 0.8),
+                  fontSize: 32,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                AppStrings.tagline,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: AppColors.greyMedium,
+                  fontSize: 16,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              AppButton(
+                label: 'Continue',
+                onPressed: () => context.push(AppRoutes.loginOption),
+              ),
+            ],
+          ),
         ),
       ),
     );

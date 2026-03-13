@@ -26,6 +26,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final _repo = EstateRepository();
   late final Future<_HomeData> _homeFuture;
   Set<String> _savedIds = <String>{};
+  /// Local override for "What do you need?" - null means use data.lookingFor
+  bool? _preferRent;
 
   @override
   void initState() {
@@ -52,6 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
       topAgents: results[3] as List<TopAgentItem>,
       userName: (profile?.name ?? '').trim(),
       avatarUrl: profile?.avatarUrl,
+      lookingFor: profile?.lookingFor ?? 'rent',
     );
   }
 
@@ -113,7 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 20),
                         _buildSectionHeader(context, 'What do you need?', right: null),
                         const SizedBox(height: 10),
-                        _buildNeedToggle(),
+                        _buildNeedToggle(context, data),
                         const SizedBox(height: 24),
                         _buildSectionHeader(context, 'Featured Estates', right: 'view all', onSeeAll: () => context.push(AppRoutes.explore)),
                         const SizedBox(height: 12),
@@ -375,42 +378,58 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildNeedToggle() {
-    return Container(
-      height: 50,
-      decoration: BoxDecoration(
-        color: AppColors.greySoft1,
-        borderRadius: BorderRadius.circular(25),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              alignment: Alignment.center,
-              child: const Text(
-                'I need to rent',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
+  Widget _buildNeedToggle(BuildContext context, _HomeData data) {
+    final preferRent = _preferRent ?? (data.lookingFor == 'buy' ? false : true);
+    return GestureDetector(
+      onTap: () => setState(() => _preferRent = !preferRent),
+      child: Container(
+        height: 50,
+        decoration: BoxDecoration(
+          color: AppColors.greySoft1,
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: preferRent ? AppColors.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'I need to rent',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: preferRent ? Colors.white : AppColors.greyMedium,
+                    fontWeight: preferRent ? FontWeight.w600 : FontWeight.w400,
+                  ),
                 ),
               ),
             ),
-          ),
-          const Expanded(
-            child: Center(
-              child: Text(
-                'I need to buy',
-                style: TextStyle(fontSize: 12, color: AppColors.greyMedium),
+            Expanded(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: !preferRent ? AppColors.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'I need to buy',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: !preferRent ? Colors.white : AppColors.greyMedium,
+                    fontWeight: !preferRent ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -443,7 +462,8 @@ class _HomeData {
     required this.topLocations,
     required this.topAgents,
     required this.userName,
-    required this.avatarUrl,
+    this.avatarUrl,
+    this.lookingFor = 'rent',
   });
 
   const _HomeData.empty()
@@ -452,7 +472,8 @@ class _HomeData {
         topLocations = const <TopLocationItem>[],
         topAgents = const <TopAgentItem>[],
         userName = '',
-        avatarUrl = null;
+        avatarUrl = null,
+        lookingFor = 'rent';
 
   final List<EstateItem> featured;
   final List<EstateItem> nearby;
@@ -460,6 +481,7 @@ class _HomeData {
   final List<TopAgentItem> topAgents;
   final String userName;
   final String? avatarUrl;
+  final String lookingFor;
 
   String get currentLocation {
     if (topLocations.isNotEmpty) return topLocations.first.name;

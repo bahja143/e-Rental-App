@@ -62,7 +62,6 @@ class _RemoteImageState extends State<RemoteImage> {
               Container(
                 width: widget.width,
                 height: widget.height,
-                color: const Color(0xFFF5F4F8),
               );
         }
 

@@ -15,6 +15,7 @@ class ProfileRepository {
         name: '${userMap['name'] ?? ''}',
         email: '${userMap['email'] ?? ''}',
         avatarUrl: userMap['profile_picture_url'] == null ? null : '${userMap['profile_picture_url']}',
+        lookingFor: userMap['looking_for'] == null ? null : '${userMap['looking_for']}',
       );
       if (profile.name.isNotEmpty && profile.email.isNotEmpty) return profile;
     } catch (_) {
