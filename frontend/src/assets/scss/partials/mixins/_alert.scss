@@ -1,0 +1,12 @@
+@mixin alert-variant-pc($background, $border, $color) {
+  color: $color;
+  background: $background;
+  border-color: $border;
+
+  .alert-link {
+    color: darken($color, 10%);
+  }
+}
+.swal-footer {
+  text-align: center;
+}

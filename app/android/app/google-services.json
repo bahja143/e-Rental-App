@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "850631308855",
+    "project_id": "rental-app-7f197",
+    "storage_bucket": "rental-app-7f197.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:850631308855:android:4d6617d78237255f5971b2",
+        "android_client_info": {
+          "package_name": "com.example.hanti_riyo"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "850631308855-c6pnkpu1mjrjudde5n5g8ri32v79q449.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDU40NM0TY8RKJ4t-6cL6yKhTu4rXNs7yw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "850631308855-c6pnkpu1mjrjudde5n5g8ri32v79q449.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "850631308855-8c8du6nsmt4mha46m6umd046mle8q27q.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.hantiRiyo"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

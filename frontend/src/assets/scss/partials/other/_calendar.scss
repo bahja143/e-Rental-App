@@ -1,0 +1,47 @@
+/**  =====================
+      Calendar css start
+==========================  **/
+
+.external-events {
+  .fc-event {
+    color: rgb(0, 0, 0);
+    cursor: move;
+    padding: 5px 18px;
+    margin-top: 5px;
+    background: $primary-color;
+    border-color: $primary-color;
+  }
+}
+
+@media only screen and (max-width: 600px) {
+  .fc .fc-toolbar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+.calendar {
+  a:not([href]):not([tabindex]) {
+    &,
+    &:focus,
+    &:hover {
+      color: rgb(0, 0, 0);
+    }
+  }
+
+  .fc-event,
+  .fc-event:hover {
+    color: #fff;
+    cursor: move;
+    padding: 5px 18px;
+    margin-top: 2px;
+    background: $primary-color;
+    border-color: $primary-color;
+  }
+
+  .fc-ltr .fc-basic-view .fc-day-top .fc-day-number {
+    color: #888;
+  }
+}
+/**====== Calendar css end ======**/
