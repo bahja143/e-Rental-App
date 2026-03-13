@@ -1,0 +1,89 @@
+const express = require('express');
+const router = express.Router();
+
+// Import route modules
+const userRoutes = require('./users');
+// const locationRoutes = require('./locations');
+const stateCategoryRoutes = require('./stateCategories');
+const languageRoutes = require('./languages');
+const userStateCategoryRoutes = require('./userStateCategories');
+const userBankAccountRoutes = require('./userBankAccounts');
+const listingTypeRoutes = require('./listingTypes');
+const propertyCategoryRoutes = require('./propertyCategories');
+const propertyFeaturesRoutes = require('./propertyFeatures');
+const facilitiesRoutes = require('./facilities');
+const nearbyPlacesRoutes = require('./nearbyPlaces');
+const listingsRoutes = require('./listings');
+const typeListingsRoutes = require('./typeListings');
+const listingCategoriesRoutes = require('./listingCategories');
+const listingFeaturesRoutes = require('./listingFeatures');
+const listingFacilitiesRoutes = require('./listingFacilities');
+const listingPlacesRoutes = require('./listingPlaces');
+const listingReviewsRoutes = require('./listingReviews');
+const listingVisitsRoutes = require('./listingVisits');
+const promotionPackRoutes = require('./promotionPacks');
+const listingPackRoutes = require('./listingPacks');
+const userListingPackRoutes = require('./userListingPacks');
+const userListingPackTransactionRoutes = require('./userListingPackTransactions');
+const couponRoutes = require('./coupons');
+const promotionRoutes = require('./promotions');
+const withdrawBalanceRoutes = require('./withdrawBalances');
+const listingBuyingRoutes = require('./listingBuyings');
+const listingRentalRoutes = require('./listingRentals');
+const favouriteRoutes = require('./favourites');
+const companyRoutes = require('./companies');
+const faqRoutes = require('./faqs');
+const notificationRoutes = require('./notifications');
+const userDeviceRoutes = require('./userDevices');
+const listingNotificationsMapsRoutes = require('./listingNotificationsMaps');
+const chatRoutes = require('./chat');
+const recentSearchesRoutes = require('./recentSearches');
+const publicListingsRoutes = require('./publicListings');
+const settingsRoutes = require('./settings');
+
+// Mount routes
+router.use('/users', userRoutes);
+// router.use('/locations', locationRoutes);
+router.use('/state-categories', stateCategoryRoutes);
+router.use('/languages', languageRoutes);
+router.use('/user-state-categories', userStateCategoryRoutes);
+router.use('/user-bank-accounts', userBankAccountRoutes);
+router.use('/listing-types', listingTypeRoutes);
+router.use('/property-categories', propertyCategoryRoutes);
+router.use('/property-features', propertyFeaturesRoutes);
+router.use('/facilities', facilitiesRoutes);
+router.use('/nearby-places', nearbyPlacesRoutes);
+router.use('/listings', listingsRoutes);
+router.use('/type-listings', typeListingsRoutes);
+router.use('/listing-categories', listingCategoriesRoutes);
+router.use('/listing-features', listingFeaturesRoutes);
+router.use('/listing-facilities', listingFacilitiesRoutes);
+router.use('/listing-places', listingPlacesRoutes);
+router.use('/listing-reviews', listingReviewsRoutes);
+router.use('/listing-visits', listingVisitsRoutes);
+router.use('/promotion-packs', promotionPackRoutes);
+router.use('/listing-packs', listingPackRoutes);
+router.use('/user-listing-packs', userListingPackRoutes);
+router.use('/user-listing-pack-transactions', userListingPackTransactionRoutes);
+router.use('/coupons', couponRoutes);
+router.use('/promotions', promotionRoutes);
+router.use('/withdraw-balances', withdrawBalanceRoutes);
+router.use('/listing-buyings', listingBuyingRoutes);
+router.use('/listing-rentals', listingRentalRoutes);
+router.use('/favourites', favouriteRoutes);
+router.use('/companies', companyRoutes);
+router.use('/faqs', faqRoutes);
+router.use('/notifications', notificationRoutes);
+router.use('/user-devices', userDeviceRoutes);
+router.use('/listing-notifications-maps', listingNotificationsMapsRoutes);
+router.use('/chat', chatRoutes);
+router.use('/recent-searches', recentSearchesRoutes);
+router.use('/public/listings', publicListingsRoutes);
+router.use('/settings', settingsRoutes);
+
+// Default route
+router.get('/', (req, res) => {
+  res.json({ message: 'API Routes' });
+});
+
+module.exports = router;
