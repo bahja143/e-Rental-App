@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../data/models/chat_message.dart';
 import '../data/repositories/messages_repository.dart';
@@ -72,12 +73,18 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Text(widget.agentName[0], style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppColors.primary, fontSize: 14)),
             ),
             const SizedBox(width: 12),
-            Text(widget.agentName, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 16)),
+            Text(widget.agentName, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 14)),
           ],
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new),
-          onPressed: () => context.pop(),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(AppRoutes.messages);
+            }
+          },
         ),
         actions: [
           IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
@@ -182,6 +189,7 @@ class _ChatInput extends StatelessWidget {
             Expanded(
               child: TextField(
                 controller: controller,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14),
                 decoration: InputDecoration(
                   hintText: 'Type a message...',
                   filled: true,
@@ -191,6 +199,7 @@ class _ChatInput extends StatelessWidget {
                     borderSide: BorderSide.none,
                   ),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14),
                 ),
                 onSubmitted: onSend,
               ),

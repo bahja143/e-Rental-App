@@ -1,6 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+
 import 'api_config.dart';
 import 'api_exception.dart';
 import 'api_session.dart';
@@ -16,6 +20,17 @@ class ApiClient {
   final HttpClient _httpClient;
   final String baseUrl;
 
+  static void _log(String method, String url, {String? requestBody, int? statusCode, String? responseBody}) {
+    debugPrint('═══ API $method $url');
+    if (requestBody != null) debugPrint('  REQ: $requestBody');
+    if (statusCode != null) debugPrint('  RES: $statusCode');
+    if (responseBody != null) {
+      final truncated = responseBody.length > 500 ? '${responseBody.substring(0, 500)}...' : responseBody;
+      debugPrint('  BODY: $truncated');
+    }
+    debugPrint('══════════════════════════════════════');
+  }
+
   Future<Map<String, dynamic>> getJson(
     String path, {
     Map<String, String>? headers,
@@ -25,13 +40,57 @@ class ApiClient {
       path: _joinPath(path),
       queryParameters: _toQueryParams(query),
     );
-    final request = await _httpClient.getUrl(uri).timeout(ApiConfig.connectTimeout);
-    _addDefaultHeaders(request);
-    _addHeaders(request, headers);
-    final response = await request.close().timeout(ApiConfig.readTimeout);
-    final body = await response.transform(utf8.decoder).join();
-    _throwIfNotOk(response.statusCode, body);
-    return _decodeToMap(body);
+    final url = uri.toString();
+    try {
+      final request = await _httpClient.getUrl(uri).timeout(ApiConfig.connectTimeout);
+      _addDefaultHeaders(request);
+      _addHeaders(request, headers);
+      final response = await request.close().timeout(ApiConfig.readTimeout);
+      final body = await response.transform(utf8.decoder).join();
+      _log('GET', url, statusCode: response.statusCode, responseBody: body);
+      _throwIfNotOk(response.statusCode, body);
+      return _decodeToMap(body);
+    } catch (e) {
+      _log('GET', url, responseBody: e.toString());
+      rethrow;
+    }
+  }
+
+  static const _imageMimeTypes = {
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'gif': 'image/gif',
+    'webp': 'image/webp',
+    'heic': 'image/heic',
+    'heif': 'image/heif',
+  };
+
+  Future<Map<String, dynamic>> postMultipartFile(
+    String apiPath,
+    File file, {
+    String fieldName = 'image',
+  }) async {
+    final path = _joinPath(apiPath);
+    final uri = Uri.parse(baseUrl).replace(path: path);
+    final request = http.MultipartRequest('POST', uri);
+    request.headers['Accept'] = 'application/json';
+    if (ApiSession.bearerToken != null && ApiSession.bearerToken!.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer ${ApiSession.bearerToken}';
+    }
+    final ext = file.path.split('.').last.toLowerCase();
+    final mimeType = _imageMimeTypes[ext] ?? 'image/jpeg';
+    request.files.add(await http.MultipartFile.fromPath(
+      fieldName,
+      file.path,
+      contentType: MediaType.parse(mimeType),
+    ));
+    final streamedResponse = await request.send().timeout(ApiConfig.readTimeout);
+    final responseBody = await streamedResponse.stream.transform(utf8.decoder).join();
+    if (streamedResponse.statusCode < 200 || streamedResponse.statusCode >= 300) {
+      _throwIfNotOk(streamedResponse.statusCode, responseBody);
+    }
+    return _decodeToMap(responseBody);
   }
 
   Future<Map<String, dynamic>> postJson(
@@ -44,13 +103,16 @@ class ApiClient {
       path: _joinPath(path),
       queryParameters: _toQueryParams(query),
     );
+    final url = uri.toString();
+    final bodyEncoded = jsonEncode(body);
     final request = await _httpClient.postUrl(uri).timeout(ApiConfig.connectTimeout);
     request.headers.set(HttpHeaders.contentTypeHeader, ContentType.json.value);
     _addDefaultHeaders(request);
     _addHeaders(request, headers);
-    request.write(jsonEncode(body));
+    request.write(bodyEncoded);
     final response = await request.close().timeout(ApiConfig.readTimeout);
     final responseBody = await response.transform(utf8.decoder).join();
+    _log('POST', url, requestBody: bodyEncoded, statusCode: response.statusCode, responseBody: responseBody);
     _throwIfNotOk(response.statusCode, responseBody);
     return _decodeToMap(responseBody);
   }
@@ -65,15 +127,23 @@ class ApiClient {
       path: _joinPath(path),
       queryParameters: _toQueryParams(query),
     );
-    final request = await _httpClient.putUrl(uri).timeout(ApiConfig.connectTimeout);
-    request.headers.set(HttpHeaders.contentTypeHeader, ContentType.json.value);
-    _addDefaultHeaders(request);
-    _addHeaders(request, headers);
-    request.write(jsonEncode(body));
-    final response = await request.close().timeout(ApiConfig.readTimeout);
-    final responseBody = await response.transform(utf8.decoder).join();
-    _throwIfNotOk(response.statusCode, responseBody);
-    return _decodeToMap(responseBody);
+    final url = uri.toString();
+    final bodyStr = jsonEncode(body);
+    try {
+      final request = await _httpClient.putUrl(uri).timeout(ApiConfig.connectTimeout);
+      request.headers.set(HttpHeaders.contentTypeHeader, ContentType.json.value);
+      _addDefaultHeaders(request);
+      _addHeaders(request, headers);
+      request.write(bodyStr);
+      final response = await request.close().timeout(ApiConfig.readTimeout);
+      final responseBody = await response.transform(utf8.decoder).join();
+      _log('PUT', url, requestBody: bodyStr, statusCode: response.statusCode, responseBody: responseBody);
+      _throwIfNotOk(response.statusCode, responseBody);
+      return _decodeToMap(responseBody);
+    } catch (e) {
+      _log('PUT', url, requestBody: bodyStr, responseBody: e.toString());
+      rethrow;
+    }
   }
 
   Future<Map<String, dynamic>> deleteJson(
@@ -85,16 +155,23 @@ class ApiClient {
       path: _joinPath(path),
       queryParameters: _toQueryParams(query),
     );
-    final request = await _httpClient.deleteUrl(uri).timeout(ApiConfig.connectTimeout);
-    _addDefaultHeaders(request);
-    _addHeaders(request, headers);
-    final response = await request.close().timeout(ApiConfig.readTimeout);
-    final responseBody = await response.transform(utf8.decoder).join();
-    _throwIfNotOk(response.statusCode, responseBody);
-    if (responseBody.trim().isEmpty) return <String, dynamic>{};
-    final decoded = jsonDecode(responseBody);
-    if (decoded is Map<String, dynamic>) return decoded;
-    return <String, dynamic>{};
+    final url = uri.toString();
+    try {
+      final request = await _httpClient.deleteUrl(uri).timeout(ApiConfig.connectTimeout);
+      _addDefaultHeaders(request);
+      _addHeaders(request, headers);
+      final response = await request.close().timeout(ApiConfig.readTimeout);
+      final responseBody = await response.transform(utf8.decoder).join();
+      _log('DELETE', url, statusCode: response.statusCode, responseBody: responseBody);
+      _throwIfNotOk(response.statusCode, responseBody);
+      if (responseBody.trim().isEmpty) return <String, dynamic>{};
+      final decoded = jsonDecode(responseBody);
+      if (decoded is Map<String, dynamic>) return decoded;
+      return <String, dynamic>{};
+    } catch (e) {
+      _log('DELETE', url, responseBody: e.toString());
+      rethrow;
+    }
   }
 
   Future<List<dynamic>> getJsonList(
@@ -106,19 +183,26 @@ class ApiClient {
       path: _joinPath(path),
       queryParameters: _toQueryParams(query),
     );
-    final request = await _httpClient.getUrl(uri).timeout(ApiConfig.connectTimeout);
-    _addDefaultHeaders(request);
-    _addHeaders(request, headers);
-    final response = await request.close().timeout(ApiConfig.readTimeout);
-    final body = await response.transform(utf8.decoder).join();
-    _throwIfNotOk(response.statusCode, body);
-    final jsonData = jsonDecode(body);
-    if (jsonData is List<dynamic>) return jsonData;
-    if (jsonData is Map<String, dynamic>) {
-      final extracted = _extractWrappedList(jsonData);
-      if (extracted != null) return extracted;
+    final url = uri.toString();
+    try {
+      final request = await _httpClient.getUrl(uri).timeout(ApiConfig.connectTimeout);
+      _addDefaultHeaders(request);
+      _addHeaders(request, headers);
+      final response = await request.close().timeout(ApiConfig.readTimeout);
+      final body = await response.transform(utf8.decoder).join();
+      _log('GET', url, statusCode: response.statusCode, responseBody: body);
+      _throwIfNotOk(response.statusCode, body);
+      final jsonData = jsonDecode(body);
+      if (jsonData is List<dynamic>) return jsonData;
+      if (jsonData is Map<String, dynamic>) {
+        final extracted = _extractWrappedList(jsonData);
+        if (extracted != null) return extracted;
+      }
+      throw ApiException('Expected a JSON array response', statusCode: response.statusCode, body: body);
+    } catch (e) {
+      _log('GET', url, responseBody: e.toString());
+      rethrow;
     }
-    throw ApiException('Expected a JSON array response', statusCode: response.statusCode, body: body);
   }
 
   List<dynamic>? _extractWrappedList(Map<String, dynamic> json) {
@@ -168,6 +252,14 @@ class ApiClient {
 
   void _throwIfNotOk(int statusCode, String body) {
     if (statusCode >= 200 && statusCode < 300) return;
+
+    // Clear session when token is invalid/expired so router redirects to welcome
+    final isAuthFailure = statusCode == 401 ||
+        (statusCode == 403 && (body.contains('expired') || body.contains('Invalid') && body.contains('token')));
+    if (isAuthFailure) {
+      ApiSession.clear();
+    }
+
     throw ApiException('Request failed with status $statusCode', statusCode: statusCode, body: body);
   }
 

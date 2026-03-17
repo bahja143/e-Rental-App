@@ -74,11 +74,21 @@ module.exports = (sequelize) => {
       allowNull: true,
       defaultValue: 'just_look_around',
     },
+    looking_for_options: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: 'Array of intents e.g. ["buy","rent","sale"]',
+    },
     profile_picture_url: {
       type: DataTypes.TEXT,
       allowNull: true,
       validate: {
-        isUrl: true,
+        isValidUrl(value) {
+          if (value == null || value === '') return;
+          if (typeof value !== 'string' || !/^https?:\/\/.+/.test(value.trim())) {
+            throw new Error('profile_picture_url must be a valid http(s) URL');
+          }
+        },
       },
     },
     pending_balance: {
@@ -100,6 +110,11 @@ module.exports = (sequelize) => {
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: false,
+    },
+    preferred_property_types: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: 'Array of property type names e.g. ["Apartment","Villa","House","Cottage"]',
     },
     role: {
       type: DataTypes.ENUM('admin', 'user'),

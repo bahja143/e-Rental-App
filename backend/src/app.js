@@ -7,6 +7,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const http = require('http');
+const path = require('path');
 const socketIo = require('socket.io');
 
 // Import configurations and modules
@@ -24,9 +25,36 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(helmet());
 app.use(cors());
-app.use(morgan('combined'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// API request/response logging (shows in backend terminal)
+app.use((req, res, next) => {
+  const start = Date.now();
+  const reqBody = req.body && Object.keys(req.body).length ? JSON.stringify(req.body, null, 2) : null;
+  let resBody = null;
+  const origJson = res.json.bind(res);
+  res.json = function (body) {
+    resBody = typeof body === 'string' ? body : JSON.stringify(body, null, 2);
+    return origJson(body);
+  };
+  const origSend = res.send.bind(res);
+  res.send = function (body) {
+    if (body && !resBody) resBody = typeof body === 'object' ? JSON.stringify(body, null, 2) : String(body).slice(0, 500);
+    return origSend(body);
+  };
+  console.log('\n' + '═'.repeat(50));
+  console.log(`>>> ${req.method} ${req.originalUrl || req.url}`);
+  if (reqBody) console.log('REQ BODY:\n' + reqBody);
+  res.on('finish', () => {
+    const ms = Date.now() - start;
+    console.log(`<<< RESPONSE ${res.statusCode} (${ms}ms)`);
+    if (resBody) console.log('RES BODY:\n' + (resBody.length > 600 ? resBody.slice(0, 600) + '...' : resBody));
+    console.log('═'.repeat(50) + '\n');
+  });
+  next();
+});
+app.use(morgan('dev'));
 
 // Rate limiting
 const limiter = rateLimit({
@@ -103,16 +131,224 @@ if (process.env.NODE_ENV !== 'test') {
 
 }
 
+// Serve uploaded files (e.g. profile images)
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
 // Routes
 app.use('/api', routes);
 
-// Auth routes
+// Auth inline routes (BEFORE auth router so they are always hit)
 const authRoutes = require('./routes/auth');
+const { User } = require('./models');
+const firebaseService = require('./services/firebaseService');
+app.post('/api/auth/google-preflight', async (req, res) => {
+  try {
+    const { idToken } = req.body || {};
+    if (!idToken || typeof idToken !== 'string') {
+      return res.status(400).json({ error: 'idToken is required' });
+    }
+    if (!firebaseService.isEnabled) {
+      return res.status(503).json({ error: 'Google Sign-In is temporarily unavailable' });
+    }
+    const decoded = await firebaseService.verifyIdToken(idToken);
+    if (!decoded) {
+      return res.status(401).json({ error: 'Invalid Google credentials' });
+    }
+    const email = decoded.email;
+    const name = decoded.name || decoded.email?.split('@')[0] || 'User';
+    const photoUrl = decoded.picture || null;
+    const phone = decoded.phone_number || null;
+    if (!email) {
+      return res.status(400).json({ error: 'Email not provided by Google' });
+    }
+    const user = await User.findOne({ where: { email } });
+    if (user) {
+      return res.json({ exists: true, name, email, photoUrl, phone });
+    }
+    return res.json({ exists: false, name, email, photoUrl, phone });
+  } catch (error) {
+    console.error('Google preflight error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Register with Google - also registered here to fix 404 when auth router fails
+const crypto = require('crypto');
+app.post('/api/auth/register-with-google', async (req, res) => {
+  try {
+    const { idToken, name, email, phone, profile_picture_url, preferred_property_types, looking_for_options, lat, lng } = req.body || {};
+    if (!idToken || typeof idToken !== 'string') {
+      return res.status(400).json({ error: 'idToken is required' });
+    }
+    if (!firebaseService.isEnabled) {
+      return res.status(503).json({ error: 'Google Sign-In is temporarily unavailable' });
+    }
+    const decoded = await firebaseService.verifyIdToken(idToken);
+    if (!decoded) {
+      return res.status(401).json({ error: 'Invalid Google credentials' });
+    }
+    const tokenEmail = (decoded.email || '').trim().toLowerCase();
+    if (!tokenEmail) {
+      return res.status(400).json({ error: 'Email not provided by Google' });
+    }
+    const sanitizedName = (name && typeof name === 'string') ? name.trim() : decoded.name || tokenEmail.split('@')[0] || 'User';
+    const sanitizedEmail = (email && typeof email === 'string') ? email.trim().toLowerCase() : tokenEmail;
+    if (sanitizedEmail !== tokenEmail) {
+      return res.status(400).json({ error: 'Email does not match Google account' });
+    }
+    let sanitizedPhone = null;
+    if (phone && (typeof phone === 'string' || typeof phone === 'number')) {
+      const phoneStr = phone.toString().replace(/[^\d+\-\s()]/g, '').trim();
+      if (/^[\+]?[1-9][\d]{0,15}$/.test(phoneStr)) sanitizedPhone = phoneStr;
+    }
+    let sanitizedProfileUrl = null;
+    if (profile_picture_url && typeof profile_picture_url === 'string' && /^https?:\/\/.+/.test(profile_picture_url.trim())) {
+      sanitizedProfileUrl = profile_picture_url.trim();
+    }
+    if (!sanitizedProfileUrl && decoded.picture && typeof decoded.picture === 'string' && /^https?:\/\/.+/.test(decoded.picture.trim())) {
+      sanitizedProfileUrl = decoded.picture.trim();
+    }
+    if (sanitizedProfileUrl) {
+      console.log('[register-with-google] Using profile_picture_url:', sanitizedProfileUrl.substring(0, 80) + '...');
+    }
+    const validLookingFor = ['buy', 'sale', 'rent', 'monitor_my_property', 'just_look_around'];
+    let sanitizedLookingForOptions = null;
+    if (Array.isArray(looking_for_options) && looking_for_options.length > 0) {
+      sanitizedLookingForOptions = looking_for_options
+        .filter((v) => typeof v === 'string' && validLookingFor.includes(v))
+        .filter((v, i, arr) => arr.indexOf(v) === i);
+      if (sanitizedLookingForOptions.length === 0) sanitizedLookingForOptions = ['just_look_around'];
+    }
+    const sanitizedLookingFor = (sanitizedLookingForOptions?.[0]) ?? 'just_look_around';
+
+    let user = await User.findOne({ where: { email: sanitizedEmail } });
+    if (user) {
+      const updates = {};
+      if (sanitizedPhone && user.phone !== sanitizedPhone) {
+        const existingByPhone = await User.findOne({ where: { phone: sanitizedPhone } });
+        if (existingByPhone && existingByPhone.id !== user.id) {
+          return res.status(409).json({ error: 'This mobile number is already linked to another account.' });
+        }
+        updates.phone = sanitizedPhone;
+      }
+      if (sanitizedProfileUrl && !user.profile_picture_url) {
+        updates.profile_picture_url = sanitizedProfileUrl;
+      }
+      if (Object.keys(updates).length > 0) {
+        await user.update(updates);
+      }
+    } else {
+      const existingByPhone = sanitizedPhone ? await User.findOne({ where: { phone: sanitizedPhone } }) : null;
+      if (existingByPhone) {
+        return res.status(409).json({ error: 'This mobile number is already linked to another account.' });
+      }
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+      const userData = {
+        name: sanitizedName,
+        email: sanitizedEmail,
+        password: randomPassword,
+        phone: sanitizedPhone,
+        profile_picture_url: sanitizedProfileUrl,
+        preferred_property_types: Array.isArray(preferred_property_types) ? preferred_property_types : null,
+        looking_for_options: sanitizedLookingForOptions,
+        looking_for: sanitizedLookingFor,
+        looking_for_set: true,
+        category_set: true,
+        role: 'user',
+        user_type: 'buyer',
+      };
+      if (lat !== undefined && lng !== undefined) {
+        const latFloat = parseFloat(lat);
+        const lngFloat = parseFloat(lng);
+        if (!isNaN(latFloat) && latFloat >= -90 && latFloat <= 90 && !isNaN(lngFloat) && lngFloat >= -180 && lngFloat <= 180) {
+          userData.lat = parseFloat(latFloat.toFixed(8));
+          userData.lng = parseFloat(lngFloat.toFixed(8));
+        }
+      }
+      user = await User.create(userData);
+    }
+
+    const accessToken = authService.generateAccessToken(user);
+    const refreshToken = authService.generateRefreshToken(user);
+    await authService.storeRefreshToken(user.id, refreshToken);
+
+    res.json({
+      message: 'Registration successful',
+      user: { id: user.id, name: user.name, email: user.email, profile_picture_url: user.profile_picture_url },
+      tokens: { accessToken, refreshToken, accessTokenExpiresIn: '15m', refreshTokenExpiresIn: '7d' },
+    });
+  } catch (error) {
+    console.error('Register with Google error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Login with phone - verify Firebase ID token (from phone auth), find user by phone
+app.post('/api/auth/login-with-phone', async (req, res) => {
+  try {
+    const { idToken } = req.body || {};
+    if (!idToken || typeof idToken !== 'string') {
+      return res.status(400).json({ error: 'idToken is required' });
+    }
+    if (!firebaseService.isEnabled) {
+      return res.status(503).json({ error: 'Phone sign-in is temporarily unavailable' });
+    }
+    const decoded = await firebaseService.verifyIdToken(idToken);
+    if (!decoded) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    const phone = decoded.phone_number || decoded.phone || null;
+    if (!phone || typeof phone !== 'string') {
+      return res.status(400).json({ error: 'Phone number not found in token' });
+    }
+    const phoneStr = phone.toString().replace(/[^\d+\-\s()]/g, '').trim();
+    if (!/^[\+]?[1-9][\d]{0,15}$/.test(phoneStr)) {
+      return res.status(400).json({ error: 'Invalid phone format' });
+    }
+    // Try exact format first, then alternate (+ prefix) to match check-availability
+    let user = await User.findOne({ where: { phone: phoneStr } });
+    if (!user && phoneStr.startsWith('+')) {
+      user = await User.findOne({ where: { phone: phoneStr.slice(1) } });
+    }
+    if (!user && !phoneStr.startsWith('+')) {
+      user = await User.findOne({ where: { phone: `+${phoneStr}` } });
+    }
+    if (!user) {
+      return res.status(404).json({ error: 'No account found. Please register first.' });
+    }
+    const accessToken = authService.generateAccessToken(user);
+    const refreshToken = authService.generateRefreshToken(user);
+    await authService.storeRefreshToken(user.id, refreshToken);
+    res.json({
+      message: 'Login successful',
+      user: { id: user.id, name: user.name, email: user.email },
+      tokens: {
+        accessToken,
+        refreshToken,
+        accessTokenExpiresIn: '15m',
+        refreshTokenExpiresIn: '7d',
+      },
+    });
+  } catch (error) {
+    console.error('Login with phone error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.use('/api/auth', authRoutes);
+
+// Upload routes
+const uploadRoutes = require('./routes/upload');
+app.use('/api/upload', uploadRoutes);
 
 // Basic route
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to Hantario API' });
+});
+
+// Ping route - hit from Flutter or browser to verify backend is reachable
+app.get('/api/ping', (req, res) => {
+  res.json({ ok: true, message: 'Backend reachable', ts: new Date().toISOString() });
 });
 
 // Health check route
@@ -175,6 +411,7 @@ process.on('SIGINT', async () => {
 if (require.main === module) {
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
+    console.log('Accepting connections on 0.0.0.0 - use your PC LAN IP for Flutter (e.g. http://192.168.x.x:3000/api)');
   });
 }
 

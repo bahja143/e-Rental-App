@@ -69,6 +69,7 @@ class _IntentSetupScreenState extends State<IntentSetupScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not save. Please try again.')),
       );
+      context.push(AppRoutes.accountSetupPreferable);
     }
   }
 }

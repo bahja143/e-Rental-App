@@ -7,6 +7,7 @@ class AppRoutes {
   static const login = '/login';
   static const register = '/register';
   static const otp = '/otp';
+  static const phoneVerification = '/phone-verification';
   static const faq = '/faq';
 
   static const home = '/home';
@@ -44,4 +45,41 @@ class AppRoutes {
   }
   static String transactionSummaryForEstate(String estateId) => '$transactionSummary?estateId=$estateId';
   static String otpForEmail(String email) => '$otp?email=${Uri.encodeComponent(email)}';
+  static String phoneVerificationForLogin(String phone) =>
+      '$phoneVerification?phone=${Uri.encodeComponent(phone)}&mode=login';
+
+  static String phoneVerificationRoute({
+    required String phone,
+    required String name,
+    required String email,
+    String? profilePictureUrl,
+  }) {
+    final params = <String, String>{
+      'phone': phone,
+      'name': name,
+      'email': email,
+    };
+    if (profilePictureUrl != null && profilePictureUrl.isNotEmpty) {
+      params['profilePictureUrl'] = profilePictureUrl;
+    }
+    final q = params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&');
+    return '$phoneVerification?$q';
+  }
+
+  static String registerWithGoogleRoute({
+    required String name,
+    required String email,
+    String? phone,
+    String? profilePictureUrl,
+  }) {
+    final params = <String, String>{
+      'name': name,
+      'email': email,
+      'emailDisabled': '1',
+    };
+    if (phone != null && phone.isNotEmpty) params['phone'] = phone;
+    if (profilePictureUrl != null && profilePictureUrl.isNotEmpty) params['profilePictureUrl'] = profilePictureUrl;
+    final q = params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&');
+    return '$register?$q';
+  }
 }

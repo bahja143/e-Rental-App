@@ -1,11 +1,12 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Persists auth token and userId so session survives app restarts.
+/// Persists auth token, userId, and last route so state survives app restarts.
 class SessionStorage {
   SessionStorage._();
 
   static const _keyToken = 'auth_token';
   static const _keyUserId = 'auth_user_id';
+  static const _keyLastRoute = 'last_route';
 
   static Future<void> save({String? token, String? userId}) async {
     try {
@@ -35,11 +36,28 @@ class SessionStorage {
     }
   }
 
+  static Future<String?> loadLastRoute() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_keyLastRoute);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> saveLastRoute(String route) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_keyLastRoute, route);
+    } catch (_) {}
+  }
+
   static Future<void> clear() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_keyToken);
       await prefs.remove(_keyUserId);
+      await prefs.remove(_keyLastRoute);
     } catch (_) {}
   }
 }

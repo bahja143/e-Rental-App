@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Hanti riyo needs your location to show nearby properties and personalize your experience.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Hanti riyo needs access to your photos to set your profile picture.</string>
 </dict>
 </plist>

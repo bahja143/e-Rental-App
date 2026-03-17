@@ -120,6 +120,20 @@ async function sendPushToTokens(tokens, { title, body, data = {} }) {
   return { enabled: true, sentCount, failedCount, invalidTokens };
 }
 
+async function verifyIdToken(idToken) {
+  ensureInitialized();
+  if (!enabled) return null;
+  try {
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    return decoded;
+  } catch (error) {
+    console.error('Firebase ID token verification failed:', error.message);
+    return null;
+  }
+}
+
 module.exports = {
-  sendPushToTokens
+  sendPushToTokens,
+  verifyIdToken,
+  get isEnabled() { ensureInitialized(); return enabled; },
 };

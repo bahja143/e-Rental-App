@@ -65,7 +65,7 @@ class AppTheme {
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
         hintStyle: GoogleFonts.raleway(
-          fontSize: 12,
+          fontSize: 14,
           color: AppColors.inputPlaceholder,
           letterSpacing: 0.36,
         ),

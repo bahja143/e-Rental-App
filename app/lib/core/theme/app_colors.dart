@@ -27,6 +27,7 @@ class AppColors {
   // Form
   static const Color inputBackground = Color(0xFFF5F4F8);
   static const Color inputPlaceholder = Color(0xFFA1A5C1);
+  static const Color inputBorderActive = Color(0xFF234F68);
 
   // Overlay
   static const Color overlayDark = Color(0xDE000000);

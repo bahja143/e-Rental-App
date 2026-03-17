@@ -1,31 +1,151 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../shared/widgets/app_button.dart';
-import '../../../shared/widgets/remote_image.dart';
 
 /// Welcome screen - Gallery grid with Hanti riyo branding
-class WelcomeScreen extends StatelessWidget {
+class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
 
+  @override
+  State<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends State<WelcomeScreen> {
+  /// Local gallery images: row1 image1-3, row2 image4-6, row3 image7-9
   static const _galleryImages = [
-    'https://www.figma.com/api/mcp/asset/bd70a21c-4edb-4be6-b9d2-5b8786ade89f',
-    'https://www.figma.com/api/mcp/asset/f6336f56-9c07-4ab4-bc1e-b9f5161cc274',
-    'https://www.figma.com/api/mcp/asset/f3ff4ce6-9313-46d5-8262-988ec9f81995',
-    'https://www.figma.com/api/mcp/asset/91ec2421-d5ab-452c-a2ef-6c111dde0060',
-    'https://www.figma.com/api/mcp/asset/a6931cf4-c208-4b9e-88d9-22c336703645',
-    'https://www.figma.com/api/mcp/asset/e0ff126b-be63-4a95-8e72-0a2da95d2c38',
-    'https://www.figma.com/api/mcp/asset/db348b35-ef2c-417a-90e6-98162ef4c22a',
-    'https://www.figma.com/api/mcp/asset/5482ee66-ac02-46fa-8f1c-0066b7150b68',
-    'https://www.figma.com/api/mcp/asset/c4d7a3f2-b7f3-4869-97e2-a6cb2ad5782c',
+    'assets/images/welcome/Image (1).png',
+    'assets/images/welcome/Image (2).png',
+    'assets/images/welcome/Image (3).png',
+    'assets/images/welcome/Image (4).png',
+    'assets/images/welcome/Image (5).png',
+    'assets/images/welcome/Image (6).png',
+    'assets/images/welcome/Image (7).png',
+    'assets/images/welcome/Image (8).png',
+    'assets/images/welcome/Image (9).png',
   ];
-  static const _centerLogo = 'https://www.figma.com/api/mcp/asset/091f3a32-c97f-4577-b815-0c232056e811';
+  static const _centerLogo = 'assets/images/logo.png';
+
+  void _showExitModal() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black54,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Container(
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: AppColors.greySoft1,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.greySoft2, width: 1),
+                ),
+                child: const Icon(
+                  Icons.logout_rounded,
+                  size: 28,
+                  color: AppColors.greyMedium,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Exit app',
+                style: GoogleFonts.lato(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Are you sure you want to exit the app?',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.raleway(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                  color: AppColors.greyMedium,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 28),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.greySoft1,
+                          foregroundColor: AppColors.textPrimary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: SizedBox(
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                          SystemNavigator.pop();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text('Exit'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<bool> _handleBackButton() async {
+    _showExitModal();
+    return true; // Prevent default exit
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return BackButtonListener(
+      onBackButtonPressed: _handleBackButton,
+      child: Scaffold(
       backgroundColor: AppColors.background,
       body: Stack(
           children: [
@@ -36,30 +156,31 @@ class WelcomeScreen extends StatelessWidget {
               top: 148,
               width: 409,
               height: 358,
-              child: IgnorePointer(
-                child: RemoteImage(
-                  url: _centerLogo,
+                    child: IgnorePointer(
+                child: Image.asset(
+                  _centerLogo,
                   fit: BoxFit.contain,
-                  errorWidget: const SizedBox.shrink(),
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                 ),
               ),
             ),
             _buildContent(context),
           ],
         ),
+    ),
     );
   }
 
-  /// Figma layout (node 9:252): 3 columns, 9px gap, fixed per-cell aspect ratios
+  /// Figma 2063-10310 Gallery: 3 columns, 9px gap, 109px width per cell
   static const _gap = 9.0;
   static const _figmaWidth = 109.0;
 
-  /// Per Figma: (col,row) -> height. Aspect ratio = 109/height.
+  /// Per Figma: Column (col) contains 3 cells with heights [h0, h1, h2]. Aspect = width/height.
   static double _cellAspectRatio(int col, int row) {
     const heights = [
-      [130.0, 140.0, 175.0], // column 0
-      [175.0, 130.0, 140.0], // column 1
-      [175.0, 140.0, 175.0], // column 2
+      [130.0, 140.0, 175.0], // column 0: image1, image2, image3
+      [175.0, 130.0, 140.0], // column 1: image4, image5, image6
+      [175.0, 140.0, 175.0], // column 2: image7, image8, image9
     ];
     return _figmaWidth / heights[col][row];
   }
@@ -87,16 +208,10 @@ class WelcomeScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                       child: AspectRatio(
                         aspectRatio: _cellAspectRatio(col, row),
-                        child: RemoteImage(
-                          url: _galleryImages[idx],
+                        child: Image.asset(
+                          _galleryImages[idx],
                           fit: BoxFit.cover,
-                          placeholder: Container(
-                            color: AppColors.greySoft1,
-                            child: const Center(
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
-                          errorWidget: Container(
+                          errorBuilder: (_, __, ___) => Container(
                             color: AppColors.greySoft1,
                             child: const Icon(Icons.home_work, color: AppColors.greyBarelyMedium),
                           ),
@@ -126,7 +241,7 @@ class WelcomeScreen extends StatelessWidget {
             end: Alignment.bottomCenter,
             colors: [
               Colors.transparent,
-              Colors.black.withValues(alpha: 1),
+              Colors.black.withValues(alpha: 0.95),
             ],
           ),
         ),
@@ -155,7 +270,7 @@ class WelcomeScreen extends StatelessWidget {
               Text(
                 AppStrings.welcome,
                 style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                  color: AppColors.textAccent.withValues(alpha: 0.8),
+                  color: AppColors.textAccent.withValues(alpha: 1),
                   fontSize: 32,
                 ),
               ),

@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "850631308855-lkcm97u67vj5rjdnsrentnc4lhsr7jrf.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.hanti_riyo",
+            "certificate_hash": "a3602f682f9d6b3a191595c2479cfd69ab6022bf"
+          }
+        },
+        {
           "client_id": "850631308855-c6pnkpu1mjrjudde5n5g8ri32v79q449.apps.googleusercontent.com",
           "client_type": 3
         }

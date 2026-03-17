@@ -2,34 +2,49 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../data/onboarding_session.dart';
 import '../../../shared/widgets/app_button.dart';
-import '../../../shared/widgets/remote_image.dart';
 
 class ChoiceScreen extends StatefulWidget {
-  const ChoiceScreen({super.key});
+  const ChoiceScreen({super.key, this.fromOtp = false});
+
+  final bool fromOtp;
 
   @override
   State<ChoiceScreen> createState() => _ChoiceScreenState();
 }
 
 class _ChoiceScreenState extends State<ChoiceScreen> {
-  static const _heroImage = 'https://www.figma.com/api/mcp/asset/94df70e2-44bb-4611-bb3b-71196d32f193';
+  /// Figma 9:295 – top city life illustration
+  static const _heroAsset = 'assets/images/welcome/undraw_city_life_gnpr 1.png';
   static const _options = [
-    'Buy',
-    'Sell',
-    'Rent',
-    'Monitor my property',
-    'Just look around',
+    ('Buy', 'buy'),
+    ('Sell', 'sale'),
+    ('Rent', 'rent'),
+    ('Monitor my property', 'monitor_my_property'),
+    ('Just look around', 'just_look_around'),
   ];
 
-  final Set<String> _selected = {};
+  late final Set<String> _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    final data = OnboardingSession.data;
+    _selected = {};
+    final list = data?.lookingForList ?? (data != null && data.lookingFor.isNotEmpty ? [data.lookingFor] : <String>[]);
+    for (final v in list) {
+      final match = _options.where((o) => o.$2 == v).firstOrNull;
+      if (match != null) _selected.add(match.$1);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) context.go(AppRoutes.welcome);
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && context.canPop()) context.pop();
       },
       child: Scaffold(
         backgroundColor: AppColors.surface,
@@ -41,26 +56,27 @@ class _ChoiceScreenState extends State<ChoiceScreen> {
               top: -31,
               width: 408,
               height: 175,
-              child: RemoteImage(
-                url: _heroImage,
+              child: Image.asset(
+                _heroAsset,
                 fit: BoxFit.cover,
-                errorWidget: Container(color: AppColors.greySoft1),
+                width: 408,
+                height: 175,
               ),
             ),
             Positioned(
-              right: 24,
-              top: 40,
+              left: 24,
+              top: 24,
               child: GestureDetector(
-                onTap: () => context.go(AppRoutes.home),
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Text(
-                    'Skip',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: const Color(0xFFF85A5A),
-                        ),
+                onTap: () { if (context.canPop()) context.pop(); },
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: AppColors.greySoft1,
+                    borderRadius: BorderRadius.circular(25),
                   ),
+                  alignment: Alignment.center,
+                  child: const Icon(Icons.arrow_back_ios_new, size: 20, color: AppColors.textPrimary),
                 ),
               ),
             ),
@@ -88,18 +104,18 @@ class _ChoiceScreenState extends State<ChoiceScreen> {
                         ),
                   ),
                   const SizedBox(height: 24),
-                  for (final label in _options)
+                  for (final option in _options)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: _ChoiceRow(
-                        label: label,
-                        selected: _selected.contains(label),
+                        label: option.$1,
+                        selected: _selected.contains(option.$1),
                         onTap: () {
                           setState(() {
-                            if (_selected.contains(label)) {
-                              _selected.remove(label);
+                            if (_selected.contains(option.$1)) {
+                              _selected.remove(option.$1);
                             } else {
-                              _selected.add(label);
+                              _selected.add(option.$1);
                             }
                           });
                         },
@@ -109,7 +125,31 @@ class _ChoiceScreenState extends State<ChoiceScreen> {
                   Center(
                     child: AppButton(
                       label: 'Next',
-                      onPressed: () => context.go(AppRoutes.loginOption),
+                      onPressed: () {
+                        if (widget.fromOtp) {
+                          if (_selected.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Please select at least one option.')),
+                            );
+                            return;
+                          }
+                          final data = OnboardingSession.data;
+                          if (data != null) {
+                            final list = _options
+                                    .where((o) => _selected.contains(o.$1))
+                                    .map((o) => o.$2)
+                                    .toList();
+                            final lookingFor = list.isNotEmpty ? list.first : 'just_look_around';
+                            OnboardingSession.set(data.copyWith(
+                              lookingFor: lookingFor,
+                              lookingForList: list,
+                            ));
+                          }
+                          context.push(AppRoutes.accountSetupPreferable);
+                        } else {
+                          context.go(AppRoutes.loginOption);
+                        }
+                      },
                     ),
                   ),
                 ],

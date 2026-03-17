@@ -121,6 +121,7 @@ const getUserById = async (req, res) => {
 // Create new user
 const createUser = async (req, res) => {
   try {
+    const body = req.body || {};
     const {
       name,
       email,
@@ -130,14 +131,29 @@ const createUser = async (req, res) => {
       lat,
       lng,
       looking_for,
+      looking_for_options,
       profile_picture_url,
+      preferred_property_types,
       pending_balance = 0,
       available_balance = 0,
       looking_for_set = false,
       category_set = false,
       role = 'user',
       user_type = 'buyer',
-    } = req.body;
+    } = body;
+
+    // Log for debugging: ensure preferred_property_types and looking_for_options are received
+    if (preferred_property_types !== undefined || looking_for_options !== undefined) {
+      console.log('[createUser] preferences received:', {
+        preferred_property_types,
+        looking_for_options,
+        category_set,
+        looking_for_set,
+      });
+    }
+    if (profile_picture_url !== undefined) {
+      console.log('[createUser] profile_picture_url received:', profile_picture_url ? 'present' : 'null/empty');
+    }
 
     // Input validation and sanitization
     if (!name || typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 100) {
@@ -168,9 +184,20 @@ const createUser = async (req, res) => {
       sanitizedCity = city.trim().substring(0, 255); // Limit length
     }
 
-    // Validate looking_for enum
+    // Validate looking_for / looking_for_options
     const validLookingFor = ['buy', 'sale', 'rent', 'monitor_my_property', 'just_look_around'];
-    const sanitizedLookingFor = validLookingFor.includes(looking_for) ? looking_for : 'just_look_around';
+    let sanitizedLookingForOptions = null;
+    if (Array.isArray(looking_for_options) && looking_for_options.length > 0) {
+      sanitizedLookingForOptions = looking_for_options
+        .filter((v) => typeof v === 'string' && validLookingFor.includes(v))
+        .filter((v, i, arr) => arr.indexOf(v) === i); // unique
+      if (sanitizedLookingForOptions.length === 0) {
+        sanitizedLookingForOptions = ['just_look_around'];
+      }
+    }
+    const sanitizedLookingFor =
+      (sanitizedLookingForOptions?.[0]) ??
+      (validLookingFor.includes(looking_for) ? looking_for : 'just_look_around');
 
     let sanitizedProfileUrl = null;
     if (profile_picture_url && typeof profile_picture_url === 'string') {
@@ -203,7 +230,9 @@ const createUser = async (req, res) => {
       password: sanitizedPassword,
       city: sanitizedCity,
       looking_for: sanitizedLookingFor,
+      looking_for_options: sanitizedLookingForOptions,
       profile_picture_url: sanitizedProfileUrl,
+      preferred_property_types: Array.isArray(preferred_property_types) ? preferred_property_types : null,
       pending_balance: pendingBal,
       available_balance: availableBal,
       looking_for_set: Boolean(looking_for_set),
@@ -231,6 +260,9 @@ const createUser = async (req, res) => {
     }
 
     const user = await User.create(userData);
+    if (sanitizedProfileUrl) {
+      console.log('[createUser] Saved profile_picture_url for user', user.id);
+    }
 
     res.status(201).json({
       message: 'User created successfully',
@@ -240,8 +272,11 @@ const createUser = async (req, res) => {
     console.error('Error creating user:', error);
 
     if (error.name === 'SequelizeUniqueConstraintError') {
-      const field = error.errors[0].path;
-      return res.status(409).json({ error: `${field} already exists` });
+      const field = error.errors?.[0]?.path || 'email';
+      const msg = field === 'phone'
+        ? 'This mobile number is already linked to an account'
+        : 'This email is already linked to an account';
+      return res.status(409).json({ error: msg, field });
     }
 
     if (error.name === 'SequelizeValidationError') {
@@ -270,7 +305,9 @@ const updateUser = async (req, res) => {
       lat,
       lng,
       looking_for,
+      looking_for_options,
       profile_picture_url,
+      preferred_property_types,
       pending_balance,
       available_balance,
       looking_for_set,
@@ -321,8 +358,19 @@ const updateUser = async (req, res) => {
       }
     }
 
-    if (looking_for !== undefined) {
-      const validLookingFor = ['buy', 'sale', 'rent', 'monitor_my_property', 'just_look_around'];
+    const validLookingFor = ['buy', 'sale', 'rent', 'monitor_my_property', 'just_look_around'];
+    if (looking_for_options !== undefined) {
+      if (Array.isArray(looking_for_options) && looking_for_options.length > 0) {
+        const sanitized = looking_for_options
+          .filter((v) => typeof v === 'string' && validLookingFor.includes(v))
+          .filter((v, i, arr) => arr.indexOf(v) === i);
+        updateData.looking_for_options = sanitized.length > 0 ? sanitized : null;
+        updateData.looking_for = sanitized[0] ?? (updateData.looking_for ?? user.looking_for ?? 'just_look_around');
+      } else {
+        updateData.looking_for_options = null;
+      }
+    }
+    if (looking_for !== undefined && looking_for_options === undefined) {
       if (!validLookingFor.includes(looking_for)) {
         return res.status(400).json({ error: 'Invalid looking_for value' });
       }
@@ -360,6 +408,9 @@ const updateUser = async (req, res) => {
 
     if (looking_for_set !== undefined) updateData.looking_for_set = Boolean(looking_for_set);
     if (category_set !== undefined) updateData.category_set = Boolean(category_set);
+    if (preferred_property_types !== undefined) {
+      updateData.preferred_property_types = Array.isArray(preferred_property_types) ? preferred_property_types : null;
+    }
 
     // Validate and update role and user_type
     if (role !== undefined) {

@@ -1,64 +1,71 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_colors.dart';
 
-enum SocialProvider { google, facebook }
+enum SocialProvider { google }
 
 class SocialLoginButton extends StatelessWidget {
   const SocialLoginButton({
     super.key,
     required this.provider,
     required this.onPressed,
+    this.isLoading = false,
   });
 
   final SocialProvider provider;
   final VoidCallback onPressed;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.greySoft1,
-      borderRadius: BorderRadius.circular(25),
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(25),
+        onTap: isLoading ? null : onPressed,
+        borderRadius: BorderRadius.circular(10),
         child: SizedBox(
           height: 70,
-          width: 158.5,
-          child: Center(child: _buildIcon()),
+          width: double.infinity,
+          child: Center(
+            child: isLoading
+                ? SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.primary,
+                    ),
+                  )
+                : _buildContent(),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildIcon() {
+  Widget _buildContent() {
     switch (provider) {
       case SocialProvider.google:
-        return Text(
-          'G',
-          style: GoogleFonts.raleway(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF4285F4),
-          ),
-        );
-      case SocialProvider.facebook:
-        return Container(
-          width: 25,
-          height: 25,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1877F2),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            'f',
-            style: GoogleFonts.raleway(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SvgPicture.asset(
+              'assets/images/google_logo.svg',
+              width: 24,
+              height: 24,
             ),
-          ),
+            const SizedBox(width: 12),
+            Text(
+              'Sign in with Google',
+              style: GoogleFonts.raleway(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
         );
     }
   }

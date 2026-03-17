@@ -185,11 +185,13 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
         TextFormField(
           controller: _descriptionController,
           maxLines: 4,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14),
           decoration: InputDecoration(
             hintText: 'Description',
             filled: true,
             fillColor: AppColors.greySoft1,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+            hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14),
           ),
         ),
         const SizedBox(height: 40),

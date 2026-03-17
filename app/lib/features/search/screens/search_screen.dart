@@ -122,7 +122,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             decoration: const InputDecoration(
                               border: InputBorder.none,
                             ),
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppColors.textPrimary),
+                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppColors.textPrimary, fontSize: 14),
                             onSubmitted: (_) => _runSearch(),
                           ),
                         ),

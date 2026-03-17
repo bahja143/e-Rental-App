@@ -80,13 +80,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   CircleAvatar(
                     radius: 50,
                     backgroundColor: AppColors.primary.withValues(alpha: 0.3),
-                    child: Text(
-                      profile.name.isEmpty ? 'U' : profile.name[0].toUpperCase(),
-                      style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                            color: AppColors.primary,
-                            fontSize: 40,
-                          ),
-                    ),
+                    backgroundImage: profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty
+                        ? NetworkImage(profile.avatarUrl!)
+                        : null,
+                    child: profile.avatarUrl == null || profile.avatarUrl!.isEmpty
+                        ? Text(
+                            profile.name.isEmpty ? 'U' : profile.name[0].toUpperCase(),
+                            style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                                  color: AppColors.primary,
+                                  fontSize: 40,
+                                ),
+                          )
+                        : null,
                   ),
                   const SizedBox(height: 16),
                   Text(profile.name, style: Theme.of(context).textTheme.titleLarge),

@@ -118,10 +118,11 @@ class _FaqScreenState extends State<FaqScreen> {
           Expanded(
             child: TextField(
               controller: _searchController,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14),
               decoration: InputDecoration(
                 hintText: 'Try find "how to"',
                 border: InputBorder.none,
-                hintStyle: Theme.of(context).textTheme.bodyMedium,
+                hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14),
               ),
             ),
           ),
@@ -157,7 +158,7 @@ class _FaqScreenState extends State<FaqScreen> {
             child: Icon(icon, size: 16, color: Colors.white),
           ),
           const SizedBox(width: 10),
-          Text(label, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 16)),
+          Text(label, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 14)),
         ],
       ),
     );
