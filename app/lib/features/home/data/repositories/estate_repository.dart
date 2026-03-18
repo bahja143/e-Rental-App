@@ -238,6 +238,15 @@ class EstateRepository {
     final rentPrice = _toDouble(json['rent_price']);
     final price = sellPrice > 0 ? sellPrice : (rentPrice > 0 ? rentPrice : _toDouble(json['price']));
 
+    String? category;
+    final types = json['listingTypes'] ?? json['listing_types'];
+    if (types is List && types.isNotEmpty) {
+      final first = types.first;
+      if (first is Map) {
+        category = '${first['name_en'] ?? first['name_so'] ?? ''}'.trim();
+      }
+    }
+
     return EstateItem(
       id: '${json['id'] ?? ''}',
       title: '${json['title'] ?? ''}',
@@ -245,6 +254,7 @@ class EstateRepository {
       price: price,
       imageUrl: imageUrl,
       rating: json['rating'] == null ? null : _toDouble(json['rating']),
+      category: category?.isNotEmpty == true ? category : null,
     );
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 
 class CategoryChip extends StatelessWidget {
@@ -6,28 +7,28 @@ class CategoryChip extends StatelessWidget {
     super.key,
     required this.label,
     this.isSelected = false,
-    this.selectedColor = AppColors.primary,
   });
 
   final String label;
   final bool isSelected;
-  final Color selectedColor;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 17.5),
       decoration: BoxDecoration(
-        color: isSelected ? selectedColor : AppColors.greySoft1,
-        borderRadius: BorderRadius.circular(25),
+        color: isSelected ? AppColors.categoryActive : AppColors.greySoft1,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Center(
         child: Text(
           label,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: isSelected ? Colors.white : AppColors.textPrimary,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              ),
+          style: GoogleFonts.raleway(
+            fontSize: 10,
+            letterSpacing: 0.3,
+            color: isSelected ? AppColors.greySoft1 : AppColors.textPrimary,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          ),
         ),
       ),
     );

@@ -30,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Set<String> _savedIds = <String>{};
   /// Local override for "What do you need?" - null means use data.lookingFor
   bool? _preferRent;
+  String? _selectedLocation;
 
   @override
   void initState() {
@@ -188,13 +189,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BackButtonListener(
-      onBackButtonPressed: () async {
-        _showExitModal();
-        return true;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _showExitModal();
       },
       child: Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       body: FutureBuilder<_HomeData>(
         future: _homeFuture,
         builder: (context, snapshot) {
@@ -202,25 +203,62 @@ class _HomeScreenState extends State<HomeScreen> {
             return const Center(child: CircularProgressIndicator(color: AppColors.primary));
           }
           final data = snapshot.data ?? const _HomeData.empty();
-          return SafeArea(
-            child: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+          final topPadding = MediaQuery.of(context).padding.top;
+          return AnnotatedRegion<SystemUiOverlayStyle>(
+            value: const SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              statusBarIconBrightness: Brightness.dark,
+            ),
+            child: SafeArea(
+              top: false,
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Stack(
+                      clipBehavior: Clip.none,
                       children: [
+                        Positioned(
+                          left: -110,
+                          top: -130,
+                          child: Container(
+                            width: 380,
+                            height: 380,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.primaryBackground.withOpacity(0.15),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(24, topPadding, 24, 0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 24),
+                              _buildHeader(context, data),
                         const SizedBox(height: 24),
-                        _buildHeader(context, data),
-                        const SizedBox(height: 24),
-                        Text(
-                          'Hey, ${data.userName.isEmpty ? 'there' : data.userName}!\nLet\'s start exploring',
-                          style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                                fontSize: 40,
-                                height: 1.15,
-                                color: AppColors.textPrimary,
+                        RichText(
+                          text: TextSpan(
+                            style: GoogleFonts.lato(
+                              fontSize: 25,
+                              height: 1.6,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textPrimary,
+                            ),
+                            children: [
+                              const TextSpan(text: 'Hey, '),
+                              TextSpan(
+                                text: data.userName.isEmpty ? 'there' : '${data.userName}!',
+                                style: GoogleFonts.lato(
+                                  fontSize: 25,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.inputBorderActive,
+                                ),
                               ),
+                              if (data.userName.isNotEmpty) const TextSpan(text: '\n'),
+                              const TextSpan(text: "Let's start exploring"),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 24),
                         _buildSearchBar(context),
@@ -231,15 +269,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 10),
                         _buildNeedToggle(context, data),
                         const SizedBox(height: 24),
-                        _buildSectionHeader(context, 'Featured Estates', right: 'view all', onSeeAll: () => context.push(AppRoutes.explore)),
-                        const SizedBox(height: 12),
+                              _buildSectionHeader(context, 'Featured Estates', right: 'view all', onSeeAll: () => context.push(AppRoutes.explore)),
+                              const SizedBox(height: 12),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                ),
-                SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                   child: SizedBox(
-                    height: 132,
+                    height: 156,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -251,6 +291,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           price: estate.price,
                           rating: estate.rating,
                           imageUrl: estate.imageUrl,
+                          category: estate.displayCategory,
+                          isSaved: _savedIds.contains(estate.id),
+                          onToggleSaved: () => _toggleSaved(estate),
                           onTap: () => context.push(AppRoutes.estateDetail(estate.id)),
                         );
                       },
@@ -298,6 +341,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               price: estate.price,
                               rating: estate.rating,
                               imageUrl: estate.imageUrl,
+                              category: estate.displayCategory,
                               isSaved: _savedIds.contains(estate.id),
                               onToggleSaved: () => _toggleSaved(estate),
                               onTap: () => context.push(AppRoutes.estateDetail(estate.id)),
@@ -308,6 +352,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ],
+            ),
             ),
           );
         },
@@ -321,20 +366,25 @@ class _HomeScreenState extends State<HomeScreen> {
     return Row(
       children: [
         GestureDetector(
-          onTap: () => LocationModal.show(context),
+          onTap: () => LocationModal.show(
+                context,
+                topLocations: data.topLocations,
+                initialLocation: _selectedLocation ?? data.currentLocation,
+                onSelect: (loc) => setState(() => _selectedLocation = loc),
+              ),
           child: Container(
-            height: 50,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(25),
+              border: Border.all(color: AppColors.greySoft2),
             ),
             child: Row(
               children: [
                 const Icon(Icons.location_on, size: 15, color: AppColors.textSecondary),
                 const SizedBox(width: 8),
                 Text(
-                  data.currentLocation,
+                  _selectedLocation ?? data.currentLocation,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         fontSize: 10,
                         color: AppColors.textPrimary,
@@ -352,6 +402,7 @@ class _HomeScreenState extends State<HomeScreen> {
           icon: Icons.notifications_none,
           onTap: () => context.push(AppRoutes.notifications),
           outlined: true,
+          hasNotification: true,
         ),
         const SizedBox(width: 10),
         _IconButton(
@@ -382,7 +433,7 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
           color: AppColors.greySoft1,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           children: [
@@ -394,7 +445,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),
-            const Icon(Icons.mic_none, color: AppColors.greyBarelyMedium, size: 24),
+           
           ],
         ),
       ),
@@ -403,73 +454,136 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildTopLocations(BuildContext context, List<TopLocationItem> locations) {
     return SizedBox(
-      height: 62,
+      height: 56,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: locations.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (_, i) => GestureDetector(
-          onTap: () => context.push(AppRoutes.locationDetail(locations[i].name)),
+        itemBuilder: (_, i) {
+          final loc = locations[i];
+          final hasValidUrl = loc.avatarUrl.trim().isNotEmpty;
+          return GestureDetector(
+          onTap: () => context.push(AppRoutes.locationDetail(loc.name)),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
             decoration: BoxDecoration(
               color: AppColors.greySoft1,
-              borderRadius: BorderRadius.circular(100),
+              borderRadius: BorderRadius.circular(50),
             ),
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 SizedBox(
-                  width: 38,
-                  height: 38,
+                  width: 40,
+                  height: 40,
                   child: ClipOval(
-                    child: RemoteImage(
-                      url: locations[i].avatarUrl,
-                      fit: BoxFit.cover,
-                      errorWidget: Container(color: AppColors.greySoft1),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Container(
+                          color: AppColors.greySoft2,
+                          child: Center(
+                            child: Text(
+                              loc.name.isNotEmpty ? loc.name[0].toUpperCase() : '?',
+                              style: GoogleFonts.raleway(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.greyMedium),
+                            ),
+                          ),
+                        ),
+                        if (hasValidUrl)
+                          RemoteImage(
+                            url: loc.avatarUrl,
+                            fit: BoxFit.cover,
+                            placeholder: const SizedBox.shrink(),
+                            errorWidget: const SizedBox.shrink(),
+                          ),
+                      ],
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  locations[i].name,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 8, color: AppColors.greyMedium),
+                  loc.name,
+                  style: GoogleFonts.raleway(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textPrimary,
+                    letterSpacing: 0.3,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
-                const SizedBox(width: 6),
               ],
             ),
           ),
-        ),
+        );
+        },
       ),
     );
   }
 
   Widget _buildTopAgents(BuildContext context, List<TopAgentItem> agents) {
     return SizedBox(
-      height: 90,
+      height: 98,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: agents.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 16),
-        itemBuilder: (_, i) => GestureDetector(
-          onTap: () => context.push(AppRoutes.agentProfile(agents[i].id)),
-          child: Column(
-            children: [
-              SizedBox(
-                width: 50,
-                height: 50,
-                child: ClipOval(
-                  child: RemoteImage(
-                    url: agents[i].avatarUrl,
-                    fit: BoxFit.cover,
-                    errorWidget: Container(color: AppColors.greySoft1),
+        separatorBuilder: (_, __) => const SizedBox(width: 15),
+        itemBuilder: (_, i) {
+          final agent = agents[i];
+          final hasValidUrl = agent.avatarUrl.trim().isNotEmpty;
+          return GestureDetector(
+            onTap: () => context.push(AppRoutes.agentProfile(agent.id)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.greySoft1, width: 4),
+                  ),
+                  child: ClipOval(
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Container(
+                          color: AppColors.greySoft2,
+                          child: Center(
+                            child: Text(
+                              agent.name.isNotEmpty ? agent.name[0].toUpperCase() : '?',
+                              style: GoogleFonts.raleway(fontSize: 28, fontWeight: FontWeight.w600, color: AppColors.greyMedium),
+                            ),
+                          ),
+                        ),
+                        if (hasValidUrl)
+                          RemoteImage(
+                            url: agent.avatarUrl,
+                            fit: BoxFit.cover,
+                            placeholder: const SizedBox.shrink(),
+                            errorWidget: const SizedBox.shrink(),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(agents[i].name, style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 8)),
-            ],
-          ),
-        ),
+                const SizedBox(height: 8),
+                Text(
+                  agent.name,
+                  style: GoogleFonts.raleway(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textPrimary,
+                    letterSpacing: 0.3,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -480,7 +594,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: const [
-          CategoryChip(label: 'All', isSelected: true, selectedColor: AppColors.textSecondary),
+          CategoryChip(label: 'All', isSelected: true),
           SizedBox(width: 10),
           CategoryChip(label: 'House'),
           SizedBox(width: 10),
@@ -497,50 +611,59 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: () => setState(() => _preferRent = !preferRent),
       child: Container(
-        height: 50,
+        height: 56,
         decoration: BoxDecoration(
-          color: AppColors.greySoft1,
-          borderRadius: BorderRadius.circular(25),
+          color: AppColors.greySoft2,
+          borderRadius: BorderRadius.circular(72),
+          border: Border.all(color: AppColors.greySoft2, width: 0.8),
         ),
-        child: Row(
+        child: Stack(
           children: [
-            Expanded(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.all(6),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 200),
+              left: preferRent ? 8 : null,
+              right: preferRent ? null : 8,
+              top: 8,
+              child: Container(
+                width: 156,
+                height: 40,
                 decoration: BoxDecoration(
-                  color: preferRent ? AppColors.primary : Colors.transparent,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  'I need to rent',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: preferRent ? Colors.white : AppColors.greyMedium,
-                    fontWeight: preferRent ? FontWeight.w600 : FontWeight.w400,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFE9BD36), AppColors.primary],
                   ),
+                  borderRadius: BorderRadius.circular(72),
                 ),
               ),
             ),
-            Expanded(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: !preferRent ? AppColors.primary : Colors.transparent,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  'I need to buy',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: !preferRent ? Colors.white : AppColors.greyMedium,
-                    fontWeight: !preferRent ? FontWeight.w600 : FontWeight.w400,
+            Row(
+              children: [
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      'I need to rent',
+                      style: GoogleFonts.lato(
+                        fontSize: 15,
+                        color: preferRent ? Colors.white : AppColors.navGray,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      'I need to buy',
+                      style: GoogleFonts.lato(
+                        fontSize: 15,
+                        color: !preferRent ? Colors.white : AppColors.navGray,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -552,16 +675,26 @@ class _HomeScreenState extends State<HomeScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 25)),
+        Text(
+          title,
+          style: GoogleFonts.lato(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+            letterSpacing: 0.54,
+          ),
+        ),
         if (right != null)
           GestureDetector(
             onTap: onSeeAll,
             child: Text(
               right,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    fontSize: 10,
-                    color: AppColors.textSecondary,
-                  ),
+              style: GoogleFonts.raleway(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: AppColors.inputBorderActive,
+                letterSpacing: 0.3,
+              ),
             ),
           ),
       ],
@@ -605,27 +738,54 @@ class _HomeData {
 }
 
 class _IconButton extends StatelessWidget {
-  const _IconButton({required this.icon, required this.onTap, this.child, this.outlined = false});
+  const _IconButton({
+    required this.icon,
+    required this.onTap,
+    this.child,
+    this.outlined = false,
+    this.hasNotification = false,
+  });
 
   final IconData icon;
   final VoidCallback onTap;
   final Widget? child;
   final bool outlined;
+  final bool hasNotification;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: child ??
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: AppColors.greySoft1,
-              borderRadius: BorderRadius.circular(25),
-              border: outlined ? Border.all(color: AppColors.primary, width: 1) : null,
-            ),
-            child: Icon(icon, color: AppColors.textPrimary),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(25),
+                  border: outlined
+                      ? Border.all(color: AppColors.primary, width: 1.2)
+                      : Border.all(color: const Color(0xFFDFDFDF), width: 1.2),
+                ),
+                child: Icon(icon, color: AppColors.textPrimary, size: 22),
+              ),
+              if (hasNotification)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
           ),
     );
   }

@@ -341,7 +341,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(color: const Color(0xFF234F68).withValues(alpha: 0.75), borderRadius: BorderRadius.circular(10)),
-      child: Text(text, style: const TextStyle(fontSize: 8, color: Colors.white)),
+      child: Text(text, style: const TextStyle(fontSize: 10, color: Colors.white)),
     );
   }
 
@@ -353,7 +353,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
         children: [
           const Icon(Icons.star, size: 10, color: AppColors.primary),
           const SizedBox(width: 4),
-          Text(rating, style: const TextStyle(fontSize: 8, color: Colors.white)),
+          Text(rating, style: const TextStyle(fontSize: 10, color: Colors.white)),
         ],
       ),
     );
@@ -404,7 +404,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(data.agentName, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                  Text('House owner', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 8)),
+                  Text('House owner', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 10)),
                 ],
               ),
             ),
@@ -432,7 +432,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
             .map((e) => Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                   decoration: BoxDecoration(color: const Color(0xFFECEDF3), borderRadius: BorderRadius.circular(100)),
-                  child: Text(e, style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 8)),
+                  child: Text(e, style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 10)),
                 ))
             .toList(),
       ),
@@ -490,7 +490,7 @@ class _SmallPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(color: AppColors.greySoft1, borderRadius: BorderRadius.circular(100)),
-      child: Text(text, style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 8)),
+      child: Text(text, style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 10)),
     );
   }
 }

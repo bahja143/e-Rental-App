@@ -6,7 +6,7 @@ class ApiConfig {
   /// Override at build: flutter run --dart-define=API_BASE_URL=http://YOUR_IP:PORT
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.30.218.115:3000/api',
+    defaultValue: 'http://192.168.100.132:3000/api',
   );
 
   static const Duration connectTimeout = Duration(seconds: 15);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../explore/widgets/filter_modal.dart';
 import '../data/models/estate_item.dart';
 import '../data/repositories/estate_repository.dart';
 import '../../../shared/widgets/remote_image.dart';
@@ -136,7 +137,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                                 Positioned(
                                   top: 14,
                                   right: 14,
-                                  child: _circleButton(Icons.tune_rounded, onTap: () {}),
+                                  child: _circleButton(Icons.tune_rounded, onTap: () => FilterModal.show(context)),
                                 ),
                               ],
                             ),
@@ -236,11 +237,11 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                 ],
               ),
               const SizedBox(height: 14),
-              const Row(
+              Row(
                 children: [
-                  _FilterChip(label: 'House'),
-                  SizedBox(width: 10),
-                  _FilterChip(label: r'$250 - $450'),
+                  _FilterChip(label: 'House', onTap: () => FilterModal.show(context)),
+                  const SizedBox(width: 10),
+                  _FilterChip(label: r'$250 - $450', onTap: () => FilterModal.show(context)),
                 ],
               ),
               const SizedBox(height: 20),
@@ -281,18 +282,21 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
 }
 
 class _FilterChip extends StatelessWidget {
-  const _FilterChip({required this.label});
+  const _FilterChip({required this.label, this.onTap});
 
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return Container(
-      height: 50,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(color: const Color(0xFFEDE8C2), borderRadius: BorderRadius.circular(25)),
-      child: Row(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 50,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(color: const Color(0xFFEDE8C2), borderRadius: BorderRadius.circular(25)),
+        child: Row(
         children: [
           Container(
             width: 30,
@@ -306,6 +310,7 @@ class _FilterChip extends StatelessWidget {
             style: text.bodySmall?.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
           ),
         ],
+        ),
       ),
     );
   }

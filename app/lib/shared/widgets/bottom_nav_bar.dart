@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
@@ -16,21 +17,25 @@ class AppBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 80,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(50)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+        child: Container(
+          height: 80,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.9),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, -2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: _items.asMap().entries.map((e) {
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: _items.asMap().entries.map((e) {
           final item = e.value;
           final isActive = currentIndex == e.key;
           return GestureDetector(
@@ -43,13 +48,13 @@ class AppBottomNavBar extends StatelessWidget {
                 children: [
                   Icon(
                     item.icon,
-                    size: 24,
-                    color: isActive ? AppColors.textSecondary : AppColors.textPrimary,
+                    size: 25,
+                    color: isActive ? AppColors.inputBorderActive : AppColors.textPrimary,
                   ),
                   const SizedBox(height: 6),
                   Container(
-                    width: 4,
-                    height: 4,
+                    width: 5,
+                    height: 5,
                     decoration: BoxDecoration(
                       color: isActive ? AppColors.primary : Colors.transparent,
                       shape: BoxShape.circle,
@@ -60,6 +65,8 @@ class AppBottomNavBar extends StatelessWidget {
             ),
           );
         }).toList(),
+          ),
+        ),
       ),
     );
   }

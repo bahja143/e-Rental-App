@@ -1,4 +1,6 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../shared/widgets/remote_image.dart';
@@ -15,6 +17,7 @@ class EstateCard extends StatelessWidget {
     this.isSaved = false,
     this.onToggleSaved,
     this.highlighted = false,
+    this.category,
   }) : isHorizontal = true;
 
   const EstateCard.vertical({
@@ -28,6 +31,7 @@ class EstateCard extends StatelessWidget {
     this.isSaved = false,
     this.onToggleSaved,
     this.highlighted = false,
+    this.category,
   }) : isHorizontal = false;
 
   final String title;
@@ -40,6 +44,7 @@ class EstateCard extends StatelessWidget {
   final VoidCallback? onToggleSaved;
   final bool isHorizontal;
   final bool highlighted;
+  final String? category;
 
   @override
   Widget build(BuildContext context) {
@@ -54,87 +59,155 @@ class EstateCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: 268,
-        height: 120,
+        height: 156,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.85),
+          color: AppColors.greySoft1,
           borderRadius: BorderRadius.circular(25),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF1F4C6B).withValues(alpha: 0.15),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
         ),
         child: Row(
           children: [
             ClipRRect(
-              borderRadius: const BorderRadius.horizontal(left: Radius.circular(18)),
+              borderRadius: const BorderRadius.horizontal(left: Radius.circular(25)),
               child: SizedBox(
-                width: 126,
-                height: 120,
-                child: _buildImage(),
+                width: 134,
+                height: 156,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Positioned.fill(child: _buildImage()),
+                    if (category != null && category!.isNotEmpty)
+                      Positioned(
+                        left: 20,
+                        bottom: 6,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 7),
+                              decoration: BoxDecoration(
+                                color: AppColors.categoryActive,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                category!,
+                                style: GoogleFonts.raleway(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white,
+                                  letterSpacing: 0.24,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (onToggleSaved != null)
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: GestureDetector(
+                          onTap: onToggleSaved,
+                          child: Container(
+                            width: 25,
+                            height: 25,
+                            decoration: const BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              isSaved ? Icons.favorite : Icons.favorite_border,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 10, 12),
+                padding: const EdgeInsets.fromLTRB(16, 16, 10, 21),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.raleway(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                            letterSpacing: 0.36,
+                            height: 1.5,
                           ),
-                    ),
-                    if (rating != null)
-                      Row(
-                        children: [
-                          const Icon(Icons.star, size: 9, color: AppColors.primary),
-                          const SizedBox(width: 2),
-                          Text(
-                            rating!.toStringAsFixed(1),
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  fontSize: 8,
+                        ),
+                        const SizedBox(height: 8),
+                        if (rating != null)
+                          Row(
+                            children: [
+                              const Icon(Icons.star, size: 9, color: AppColors.primary),
+                              const SizedBox(width: 2),
+                              Text(
+                                rating!.toStringAsFixed(1),
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 10,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.greyMedium,
                                 ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on_outlined, size: 12, color: AppColors.greyBarelyMedium),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            location,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 11),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        if (rating != null) const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on_outlined, size: 9, color: AppColors.greyMedium),
+                            const SizedBox(width: 2),
+                            Expanded(
+                              child: Text(
+                                location,
+                                style: GoogleFonts.raleway(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w400,
+                                  color: AppColors.greyMedium,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                     RichText(
                       text: TextSpan(
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: AppColors.textPrimary,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                            ),
                         children: [
-                          TextSpan(text: '\$ ${price.toInt()} '),
+                          TextSpan(
+                            text: '\$ ${price.toInt()} ',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                              letterSpacing: 0.48,
+                            ),
+                          ),
                           TextSpan(
                             text: AppStrings.perMonth,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  fontSize: 6,
-                                  color: AppColors.greyMedium,
-                                ),
+                            style: GoogleFonts.montserrat(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textPrimary,
+                              letterSpacing: 0.24,
+                              height: 1.625,
+                            ),
                           ),
                         ],
                       ),
@@ -176,17 +249,18 @@ class EstateCard extends StatelessWidget {
                         right: 8,
                         child: GestureDetector(
                           onTap: onToggleSaved,
+                          behavior: HitTestBehavior.opaque,
                           child: Container(
                             width: 25,
                             height: 25,
                             decoration: const BoxDecoration(
-                              color: Colors.white,
+                              color: AppColors.primary,
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
                               isSaved ? Icons.favorite : Icons.favorite_border,
                               size: 14,
-                              color: const Color(0xFFE9678B),
+                              color: Colors.white,
                             ),
                           ),
                         ),
@@ -194,22 +268,41 @@ class EstateCard extends StatelessWidget {
                       Positioned(
                         right: 8,
                         bottom: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF234F68).withValues(alpha: 0.69),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: RichText(
-                            text: TextSpan(
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white),
-                              children: [
-                                TextSpan(
-                                  text: '\$ ${price.toInt()} ',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: AppColors.categoryActive.withValues(alpha: 0.69),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: RichText(
+                                text: TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: '\$ ${price.toInt()} ',
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                        letterSpacing: 0.36,
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text: AppStrings.perMonth,
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.greySoft1,
+                                        letterSpacing: 0.18,
+                                        height: 1.67,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const TextSpan(text: '/month', style: TextStyle(fontSize: 6)),
-                              ],
+                              ),
                             ),
                           ),
                         ),
@@ -219,51 +312,62 @@ class EstateCard extends StatelessWidget {
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.max,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.raleway(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                          letterSpacing: 0.36,
+                          height: 1.5,
                         ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      const Icon(Icons.star, size: 9, color: AppColors.primary),
-                      const SizedBox(width: 2),
-                      Text(
-                        (rating ?? 4.8).toStringAsFixed(1),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontSize: 8,
-                              color: AppColors.greyMedium,
-                              fontWeight: FontWeight.w700,
-                            ),
                       ),
-                      const SizedBox(width: 6),
-                      const Icon(Icons.location_on_outlined, size: 9, color: AppColors.greyMedium),
-                      const SizedBox(width: 2),
+                      const SizedBox(height: 10),
                       Expanded(
-                        child: Text(
-                          location,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                fontSize: 8,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.star, size: 9, color: AppColors.primary),
+                            const SizedBox(width: 2),
+                            Text(
+                              (rating ?? 4.8).toStringAsFixed(1),
+                              style: GoogleFonts.montserrat(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
                                 color: AppColors.greyMedium,
                               ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Icon(Icons.location_on_outlined, size: 9, color: AppColors.greyMedium),
+                            const SizedBox(width: 2),
+                            Expanded(
+                              child: Text(
+                                location,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.raleway(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w400,
+                                  color: AppColors.greyMedium,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
           ],
         ),
       ),

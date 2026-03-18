@@ -22,12 +22,17 @@ class AppColors {
   static const Color greyMedium = Color(0xFF53587A);
   static const Color greyBarelyMedium = Color(0xFFA1A5C1);
   static const Color greySoft1 = Color(0xFFF5F4F8);
+  static const Color primaryBackground = Color(0xFF234F68);
   static const Color greySoft2 = Color(0xFFECEDF3);
 
   // Form
   static const Color inputBackground = Color(0xFFF5F4F8);
   static const Color inputPlaceholder = Color(0xFFA1A5C1);
   static const Color inputBorderActive = Color(0xFF234F68);
+
+  // Figma: category selected, explore link, price overlay, badges
+  static const Color categoryActive = Color(0xFF234F68);
+  static const Color navGray = Color(0xFF7D7F88);
 
   // Overlay
   static const Color overlayDark = Color(0xDE000000);

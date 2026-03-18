@@ -103,6 +103,12 @@ class AppTheme {
           color: AppColors.greyMedium,
           letterSpacing: 0.36,
         ),
+        bodySmall: GoogleFonts.raleway(
+          fontSize: 10,
+          fontWeight: FontWeight.w400,
+          color: AppColors.greyMedium,
+          letterSpacing: 0.3,
+        ),
         labelLarge: GoogleFonts.raleway(
           fontSize: 12,
           fontWeight: FontWeight.w600,
