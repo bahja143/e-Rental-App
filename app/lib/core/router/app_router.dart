@@ -27,6 +27,7 @@ import '../../features/account_setup/screens/payment_setup_screen.dart';
 import '../../features/account_setup/screens/account_success_screen.dart';
 import '../../features/saved/screens/saved_screen.dart';
 import '../../features/search/screens/search_screen.dart';
+import '../../features/search/screens/search_results_screen.dart';
 import '../../features/explore/screens/explore_screen.dart';
 import '../../features/messages/screens/chat_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
@@ -127,6 +128,12 @@ GoRouter createAppRouter() {
       GoRoute(path: AppRoutes.faq, builder: (_, __) => const FaqScreen()),
       GoRoute(path: AppRoutes.home, builder: (_, __) => const HomeScreen()),
       GoRoute(path: AppRoutes.search, builder: (_, __) => const SearchScreen()),
+      GoRoute(
+        path: AppRoutes.searchResults,
+        builder: (_, state) => SearchResultsScreen(
+          initialQuery: state.uri.queryParameters['q'],
+        ),
+      ),
       GoRoute(path: AppRoutes.saved, builder: (_, __) => const SavedScreen()),
       GoRoute(path: AppRoutes.profile, builder: (_, __) => const ProfileScreen()),
       GoRoute(
@@ -216,6 +223,7 @@ const Set<String> _publicPaths = {
   AppRoutes.faq,
   AppRoutes.home,
   AppRoutes.search,
+  AppRoutes.searchResults,
   AppRoutes.explore,
   AppRoutes.topLocations,
   AppRoutes.accountSetupIntent,

@@ -358,58 +358,59 @@ class EstateCard extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
                 child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.max,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.raleway(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                          letterSpacing: 0.36,
-                          height: 1.5,
-                        ),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.max,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.raleway(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                        letterSpacing: 0.36,
+                        height: 1.5,
                       ),
-                      const SizedBox(height: 10),
-                      Expanded(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(Icons.star, size: 9, color: AppColors.primary),
-                            const SizedBox(width: 2),
-                            Text(
-                              (rating ?? 4.8).toStringAsFixed(1),
-                              style: GoogleFonts.montserrat(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.greyMedium,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            const Icon(Icons.location_on_outlined, size: 9, color: AppColors.greyMedium),
-                            const SizedBox(width: 2),
-                            Expanded(
-                              child: Text(
-                                location,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.raleway(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w400,
-                                  color: AppColors.greyMedium,
-                                ),
-                              ),
-                            ),
-                          ],
+                    ),
+                    const SizedBox(height: 10),
+                    // No [Expanded] here — a vertical [Expanded] around a [Row] forced ~0 height
+                    // when the carousel clipped card height (e.g. listing detail `28:4571`).
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.star, size: 9, color: AppColors.primary),
+                        const SizedBox(width: 2),
+                        Text(
+                          (rating ?? 4.8).toStringAsFixed(1),
+                          style: GoogleFonts.montserrat(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.greyMedium,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 6),
+                        const Icon(Icons.location_on_outlined, size: 9, color: AppColors.greyMedium),
+                        const SizedBox(width: 2),
+                        Expanded(
+                          child: Text(
+                            location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.raleway(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w400,
+                              color: AppColors.greyMedium,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
+            ),
           ],
         ),
       ),

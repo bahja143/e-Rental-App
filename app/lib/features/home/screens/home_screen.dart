@@ -31,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Local override for "What do you need?" - null means use data.lookingFor
   bool? _preferRent;
   String? _selectedLocation;
+  bool _exitDialogVisible = false;
 
   @override
   void initState() {
@@ -81,7 +82,26 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  /// Pop overlay routes first; otherwise show exit confirm. Used by [BackButtonListener] + [PopScope].
+  void _handleHomeBack() {
+    if (!mounted) return;
+    final nav = Navigator.of(context);
+    if (nav.canPop()) {
+      nav.pop();
+      return;
+    }
+    _showExitModal();
+  }
+
+  /// Android often delivers the system back key here before [PopScope] runs reliably.
+  Future<bool> _onAndroidBackPressed() async {
+    _handleHomeBack();
+    return true;
+  }
+
   void _showExitModal() {
+    if (!mounted || _exitDialogVisible) return;
+    _exitDialogVisible = true;
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -184,19 +204,23 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-    );
+    ).whenComplete(() {
+      if (mounted) _exitDialogVisible = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _showExitModal();
-      },
-      child: Scaffold(
-      backgroundColor: AppColors.background,
-      body: FutureBuilder<_HomeData>(
+    return BackButtonListener(
+      onBackButtonPressed: _onAndroidBackPressed,
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _handleHomeBack();
+        },
+        child: Scaffold(
+          backgroundColor: AppColors.background,
+          body: FutureBuilder<_HomeData>(
         future: _homeFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -361,8 +385,9 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
       ),
-      bottomNavigationBar: const AppBottomNavBar(currentIndex: 0),
-    ),
+          bottomNavigationBar: const AppBottomNavBar(currentIndex: 0),
+        ),
+      ),
     );
   }
 
@@ -431,7 +456,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildSearchBar(BuildContext context) {
     return GestureDetector(
-      onTap: () => context.push(AppRoutes.search),
+      onTap: () => context.push(AppRoutes.searchResultsRoute()),
       child: Container(
         height: 70,
         padding: const EdgeInsets.symmetric(horizontal: 16),

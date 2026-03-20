@@ -12,6 +12,8 @@ class AppRoutes {
 
   static const home = '/home';
   static const search = '/search';
+  /// Figma `24:3566` / `24:3583` — opened from home search (list/grid results).
+  static const searchResults = '/search-results';
   static const saved = '/saved';
   static const profile = '/profile';
   static const notifications = '/notifications';
@@ -55,6 +57,11 @@ class AppRoutes {
   static String otpForEmail(String email) => '$otp?email=${Uri.encodeComponent(email)}';
   static String phoneVerificationForLogin(String phone) =>
       '$phoneVerification?phone=${Uri.encodeComponent(phone)}&mode=login';
+
+  static String searchResultsRoute({String? q}) {
+    if (q == null || q.trim().isEmpty) return searchResults;
+    return '$searchResults?q=${Uri.encodeComponent(q.trim())}';
+  }
 
   static String phoneVerificationRoute({
     required String phone,

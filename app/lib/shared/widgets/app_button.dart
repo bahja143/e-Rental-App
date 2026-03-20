@@ -12,6 +12,7 @@ class AppButton extends StatelessWidget {
     this.isLoading = false,
     this.width,
     this.height = 63,
+    this.borderRadius,
   });
 
   final String label;
@@ -20,6 +21,9 @@ class AppButton extends StatelessWidget {
   final bool isLoading;
   final double? width;
   final double height;
+
+  /// When set, overrides theme shape (e.g. listing detail `28:4568` — 25px pill).
+  final double? borderRadius;
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +46,9 @@ class AppButton extends StatelessWidget {
           side: variant == AppButtonVariant.outline
               ? const BorderSide(color: AppColors.textSecondary)
               : null,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(borderRadius ?? 10),
+          ),
         ),
         child: isLoading
             ? const SizedBox(

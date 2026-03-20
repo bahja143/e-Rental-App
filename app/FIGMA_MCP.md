@@ -39,6 +39,11 @@ Figma URLs use hyphens (`node-id=21-3653`). MCP / API use a colon: **`nodeId`: `
 | `24:3484` | Search / Result - Filter |
 | `24:3583` | Search / Empty |
 | `24:3566` | Search / Result |
+| `28:4568` | Detail / Full (listing) |
+| `28:4657` | Detail **Header** toolbar row (back blur / share `#f5f4f8` / favorite `28:4658`) |
+| `28:4659` | Detail toolbar **Share** (primary circle, white `Icons.ios_share` @ 20) |
+| `28:4593` | Detail map preview (see `ListingDetailMapPreview` + `map_pin_descriptor`) |
+| `28:4571` | Nearby from this location cards (`listingDetailNearbyCarouselHeight` / card width) |
 | `2:5`, `9:251` | Welcome / set3-1 |
 | `6:264` | Login / FAQ |
 

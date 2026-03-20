@@ -53,6 +53,8 @@ class _SearchScreenState extends State<SearchScreen> {
   static const _defaultCenter = LatLng(-6.2088, 106.8456); // Jakarta
   static const _defaultZoom = 12.0;
   static const _headerRowHeight = 52.0;
+  /// Full-screen loading scrim (stronger than map-area-only; covers top chrome + bottom bar).
+  static const _loadingPageBlurSigma = 18.0;
 
   int _pageEnd = 50;
   int _totalCount = 200;
@@ -191,25 +193,35 @@ class _SearchScreenState extends State<SearchScreen> {
     setState(() => _recentSearches = _recentSearches.where((s) => s != item).toList());
   }
 
-  Future<bool> _handleAndroidBack() async {
+  /// Search is often opened with [context.go] (bottom nav) — no stack entry, so "pop" exits the app.
+  /// Prefer popping when [context.push] was used; otherwise return to home (dashboard).
+  void _handleSearchScreenBack() {
     if (_showSearchOverlay) {
-      if (mounted) setState(() => _showSearchOverlay = false);
-      return true; // consumed — stay on map/search
+      setState(() => _showSearchOverlay = false);
+      return;
     }
-    return false; // let PopScope / router handle (e.g. leave screen)
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.home);
+    }
+  }
+
+  /// Android: [GoogleMap] can swallow the system back key before [PopScope] runs — handle here first.
+  Future<bool> _onBackButtonPressed() async {
+    _handleSearchScreenBack();
+    return true;
   }
 
   @override
   Widget build(BuildContext context) {
     return BackButtonListener(
-      onBackButtonPressed: _handleAndroidBack,
+      onBackButtonPressed: _onBackButtonPressed,
       child: PopScope(
-        canPop: !_showSearchOverlay,
+        canPop: false,
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) return;
-          if (_showSearchOverlay) {
-            setState(() => _showSearchOverlay = false);
-          }
+          _handleSearchScreenBack();
         },
         child: Scaffold(
           backgroundColor: Colors.transparent,
@@ -246,6 +258,24 @@ class _SearchScreenState extends State<SearchScreen> {
                   ],
                 ),
               ),
+              // Blur entire page (map + top chrome + bottom) while loading / searching.
+              if ((_loading || _isSearching) && !_showSearchOverlay)
+                Positioned.fill(
+                  child: ClipRect(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(
+                        sigmaX: _loadingPageBlurSigma,
+                        sigmaY: _loadingPageBlurSigma,
+                      ),
+                      child: ColoredBox(
+                        color: AppColors.primaryBackground.withValues(alpha: 0.28),
+                        child: const Center(
+                          child: CircularProgressIndicator(color: AppColors.primary),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               // Figma 21:3682 — modal layer: filled search + recent card (above fader).
               if (_showSearchOverlay) ...[
                 Positioned(
@@ -347,13 +377,8 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   /// Map area (middle) - map visible, empty when not searching.
-  Widget _buildMapArea(BuildContext context) {
-    if (_showSearchOverlay) return const SizedBox.shrink();
-    if (_loading || _isSearching) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-    }
-    return const SizedBox.shrink(); // Map shows through
-  }
+  /// Map draws in the stack below; this slot stays transparent unless we add in-column UI later.
+  Widget _buildMapArea(BuildContext context) => const SizedBox.shrink();
 
   /// One chrome block: gradient from status bar → below search + single dark-blue shadow (nav / text primary — no gold).
   /// When search overlay is open, header is not built here — see [ _buildHeaderRow ] in Stack (page layer).

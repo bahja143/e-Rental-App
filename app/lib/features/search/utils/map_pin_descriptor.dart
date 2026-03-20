@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-/// Creates a custom map pin BitmapDescriptor matching Figma 21-3729 (Pin / Real Estate).
+/// Creates a custom map pin BitmapDescriptor matching Figma **21-3729** (Pin / Real Estate),
+/// also used on listing detail map (**28:4593**).
 /// Teardrop shape, dark blue #234F68, circular image area, yellow base glow.
 Future<BitmapDescriptor> createMapPinDescriptor({String? imageUrl}) async {
   const double width = 86; // slightly smaller pin

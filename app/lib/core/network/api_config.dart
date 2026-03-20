@@ -6,7 +6,7 @@ class ApiConfig {
   /// Override at build: flutter run --dart-define=API_BASE_URL=http://YOUR_IP:PORT
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.98.167.115:3000/api',
+    defaultValue: 'http://255.255.255.0:3000/api',
   );
 
   /// Google Maps API key. Get from https://console.cloud.google.com/

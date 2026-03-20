@@ -23,6 +23,8 @@ const buildListingQuery = (query) => {
     distance,
     rent_price_min,
     rent_price_max,
+    sell_price_min,
+    sell_price_max,
     rent_type,
     availability,
     include,
@@ -41,11 +43,6 @@ const buildListingQuery = (query) => {
   } else {
     if (user_id) where.user_id = user_id;
     if (title) where.title = { [Op.like]: `%${title}%` };
-    if (rent_price_min || rent_price_max) {
-      where.rent_price = {};
-      if (rent_price_min) where.rent_price[Op.gte] = parseInt(rent_price_min);
-      if (rent_price_max) where.rent_price[Op.lte] = parseInt(rent_price_max);
-    }
     if (rent_type) where.rent_type = rent_type;
     if (availability) where.availability = availability;
 
@@ -75,6 +72,18 @@ const buildListingQuery = (query) => {
         );
       }
     }
+  }
+
+  // Price filters apply with or without text search (Figma search results + filter).
+  if (rent_price_min || rent_price_max) {
+    where.rent_price = {};
+    if (rent_price_min) where.rent_price[Op.gte] = parseInt(rent_price_min, 10);
+    if (rent_price_max) where.rent_price[Op.lte] = parseInt(rent_price_max, 10);
+  }
+  if (sell_price_min || sell_price_max) {
+    where.sell_price = {};
+    if (sell_price_min) where.sell_price[Op.gte] = parseInt(sell_price_min, 10);
+    if (sell_price_max) where.sell_price[Op.lte] = parseInt(sell_price_max, 10);
   }
 
   const includeList = [

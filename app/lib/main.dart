@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_maps_flutter_android/google_maps_flutter_android.dart';
+import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'firebase_options.dart';
@@ -12,6 +14,13 @@ import 'core/network/api_client.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Let Android back reach Flutter/PopScope (Texture mode can swallow it).
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    final maps = GoogleMapsFlutterPlatform.instance;
+    if (maps is GoogleMapsFlutterAndroid) {
+      maps.useAndroidViewSurface = true;
+    }
+  }
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await FirebaseAppCheck.instance.activate(
     androidProvider: kDebugMode

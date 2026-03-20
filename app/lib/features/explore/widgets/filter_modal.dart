@@ -10,11 +10,19 @@ class FilterModal extends StatefulWidget {
     super.key,
     this.initialPropertyType = 'All',
     this.initialPreferRent = true,
+    this.initialPriceMin,
+    this.initialPriceMax,
+    this.initialAreaMin,
+    this.initialAreaMax,
     this.onApply,
   });
 
   final String initialPropertyType;
   final bool initialPreferRent;
+  final String? initialPriceMin;
+  final String? initialPriceMax;
+  final String? initialAreaMin;
+  final String? initialAreaMax;
   final void Function({
     String propertyType,
     bool preferRent,
@@ -28,6 +36,10 @@ class FilterModal extends StatefulWidget {
     BuildContext context, {
     String initialPropertyType = 'House',
     bool initialPreferRent = true,
+    String? initialPriceMin,
+    String? initialPriceMax,
+    String? initialAreaMin,
+    String? initialAreaMax,
     void Function({
       String propertyType,
       bool preferRent,
@@ -44,6 +56,10 @@ class FilterModal extends StatefulWidget {
       builder: (ctx) => FilterModal(
         initialPropertyType: initialPropertyType,
         initialPreferRent: initialPreferRent,
+        initialPriceMin: initialPriceMin,
+        initialPriceMax: initialPriceMax,
+        initialAreaMin: initialAreaMin,
+        initialAreaMax: initialAreaMax,
         onApply: ({
           String propertyType = 'All',
           bool preferRent = true,
@@ -83,6 +99,18 @@ class _FilterModalState extends State<FilterModal> {
     super.initState();
     _propertyType = widget.initialPropertyType;
     _preferRent = widget.initialPreferRent;
+    if (widget.initialPriceMin != null && widget.initialPriceMin!.isNotEmpty) {
+      _priceMin.text = widget.initialPriceMin!;
+    }
+    if (widget.initialPriceMax != null && widget.initialPriceMax!.isNotEmpty) {
+      _priceMax.text = widget.initialPriceMax!;
+    }
+    if (widget.initialAreaMin != null && widget.initialAreaMin!.isNotEmpty) {
+      _areaMin.text = widget.initialAreaMin!;
+    }
+    if (widget.initialAreaMax != null && widget.initialAreaMax!.isNotEmpty) {
+      _areaMax.text = widget.initialAreaMax!;
+    }
   }
 
   @override

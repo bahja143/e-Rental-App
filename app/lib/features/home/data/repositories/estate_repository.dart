@@ -126,6 +126,91 @@ class EstateRepository {
     return _fallbackSearchEstates;
   }
 
+  /// Public listings with optional search + price filters (server + local property type).
+  /// Backend: `rent_price_min` / `rent_price_max` or `sell_price_min` / `sell_price_max`.
+  Future<List<EstateItem>> queryPublicListings({
+    String? search,
+    int limit = 40,
+    bool preferRent = true,
+    String? rentPriceMin,
+    String? rentPriceMax,
+    String? sellPriceMin,
+    String? sellPriceMax,
+    String propertyType = 'All',
+  }) async {
+    final s = search?.trim();
+    var requestSucceeded = false;
+    try {
+      final query = <String, dynamic>{'limit': limit};
+      if (s != null && s.isNotEmpty) query['search'] = s;
+      if (preferRent) {
+        final a = rentPriceMin?.trim();
+        final b = rentPriceMax?.trim();
+        if (a != null && a.isNotEmpty) query['rent_price_min'] = a;
+        if (b != null && b.isNotEmpty) query['rent_price_max'] = b;
+      } else {
+        final a = sellPriceMin?.trim();
+        final b = sellPriceMax?.trim();
+        if (a != null && a.isNotEmpty) query['sell_price_min'] = a;
+        if (b != null && b.isNotEmpty) query['sell_price_max'] = b;
+      }
+      final response = await _apiClient.getJsonList('/public/listings', query: query);
+      requestSucceeded = true;
+      var estates = _parseEstates(response);
+      estates = _filterByPropertyType(estates, propertyType);
+      if (estates.isNotEmpty) return estates;
+      return const <EstateItem>[];
+    } catch (_) {}
+    if (requestSucceeded) return const <EstateItem>[];
+    final merged = [..._fallbackNearbyEstates, ..._fallbackSearchEstates];
+    final byId = <String, EstateItem>{};
+    for (final e in merged) {
+      byId[e.id] = e;
+    }
+    var fallback = byId.values.toList();
+    fallback = _filterByPropertyType(fallback, propertyType);
+    fallback = _filterByPriceStrings(
+      fallback,
+      preferRent: preferRent,
+      minStr: preferRent ? rentPriceMin : sellPriceMin,
+      maxStr: preferRent ? rentPriceMax : sellPriceMax,
+    );
+    if (s != null && s.isNotEmpty) {
+      final q = s.toLowerCase();
+      fallback = fallback
+          .where((e) =>
+              e.title.toLowerCase().contains(q) || e.location.toLowerCase().contains(q))
+          .toList();
+    }
+    return fallback;
+  }
+
+  List<EstateItem> _filterByPropertyType(List<EstateItem> items, String propertyType) {
+    if (propertyType == 'All') return items;
+    final t = propertyType.toLowerCase();
+    return items.where((e) {
+      final c = (e.displayCategory ?? '').toLowerCase();
+      return c.contains(t) || e.title.toLowerCase().contains(t);
+    }).toList();
+  }
+
+  List<EstateItem> _filterByPriceStrings(
+    List<EstateItem> items, {
+    required bool preferRent,
+    String? minStr,
+    String? maxStr,
+  }) {
+    final minV = int.tryParse(minStr?.trim() ?? '');
+    final maxV = int.tryParse(maxStr?.trim() ?? '');
+    if (minV == null && maxV == null) return items;
+    return items.where((e) {
+      final p = e.price.round();
+      if (minV != null && p < minV) return false;
+      if (maxV != null && p > maxV) return false;
+      return true;
+    }).toList();
+  }
+
   Future<List<TopLocationItem>> getTopLocations() async {
     var requestSucceeded = false;
     try {
