@@ -6,7 +6,15 @@ class ApiConfig {
   /// Override at build: flutter run --dart-define=API_BASE_URL=http://YOUR_IP:PORT
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://192.168.100.132:3000/api',
+    defaultValue: 'http://10.98.167.115:3000/api',
+  );
+
+  /// Google Maps API key. Get from https://console.cloud.google.com/
+  /// Enable: Maps SDK for Android, Maps SDK for iOS.
+  /// Run: flutter run --dart-define=GOOGLE_MAPS_API_KEY=YOUR_KEY
+  static const String googleMapsApiKey = String.fromEnvironment(
+    'GOOGLE_MAPS_API_KEY',
+    defaultValue: '',
   );
 
   static const Duration connectTimeout = Duration(seconds: 15);

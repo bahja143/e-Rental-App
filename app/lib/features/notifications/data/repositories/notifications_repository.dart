@@ -74,7 +74,7 @@ class NotificationsRepository {
     final target = DateTime(dateTime.year, dateTime.month, dateTime.day);
     if (target == today) return 'Today';
     if (target == today.subtract(const Duration(days: 1))) return 'Yesterday';
-    return 'Earlier';
+    return 'Older notifications';
   }
 
   String _relativeTime(DateTime? dateTime) {
@@ -91,38 +91,45 @@ class NotificationsRepository {
     NotificationItem(
       id: 'n1',
       type: NotificationType.message,
-      title: 'New message from Amanda',
-      body: 'Hi! I\'d like to schedule a viewing for the apartment on 5th Street.',
-      time: '2 min ago',
-      avatarText: 'A',
+      title: 'Emmett Perry',
+      body: 'Just messaged you. Check the message in message tab.',
+      time: '10 mins ago',
+      avatarText: 'E',
       period: 'Today',
+      bodyBoldParts: ['message'],
     ),
     NotificationItem(
       id: 'n2',
       type: NotificationType.review,
-      title: 'New review',
-      body: 'Your property at Mogadishu got a 5-star review from Sarah.',
-      time: '1 hour ago',
-      avatarText: 'S',
+      title: 'Geraldo',
+      body: 'Just giving 5 Star review on your listing Fairview Apartment',
+      time: '40 mins ago',
+      avatarText: 'G',
       period: 'Today',
+      imageUrl: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=200',
+      bodyBoldParts: ['5', 'Star', 'Fairview Apartment'],
     ),
     NotificationItem(
       id: 'n3',
       type: NotificationType.sold,
-      title: 'Property sold',
-      body: 'Congratulations! The villa in Hargeisa has been rented.',
-      time: '3 hours ago',
-      avatarText: '✓',
+      title: 'Walter Lindsey',
+      body: 'Just buy your listing Schoolview House',
+      time: '4 hours ago',
+      avatarText: 'W',
       period: 'Today',
+      imageUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=200',
+      bodyBoldParts: ['Schoolview House'],
     ),
     NotificationItem(
       id: 'n4',
       type: NotificationType.favorite,
-      title: 'Price drop',
-      body: 'A saved property dropped by \$50. Check it out!',
-      time: 'Yesterday',
-      avatarText: '♥',
-      period: 'Yesterday',
+      title: 'Velma Cole',
+      body: 'Just favorited your listing Schoolview House',
+      time: '2 Days ago',
+      avatarText: 'V',
+      period: 'Older notifications',
+      imageUrl: 'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=200',
+      bodyBoldParts: ['Schoolview House'],
     ),
   ];
 }

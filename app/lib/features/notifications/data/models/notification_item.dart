@@ -10,6 +10,8 @@ class NotificationItem {
     required this.avatarText,
     required this.period,
     this.imageUrl,
+    this.avatarUrl,
+    this.bodyBoldParts = const [],
   });
 
   final String id;
@@ -18,12 +20,19 @@ class NotificationItem {
   final String body;
   final String time;
   final String avatarText;
-  final String period; // e.g. "Today", "Yesterday"
+  final String period; // e.g. "Today", "Yesterday", "Older notifications"
   final String? imageUrl;
+  final String? avatarUrl;
+  /// Substrings in body to render in bold (e.g. listing name, star rating)
+  final List<String> bodyBoldParts;
 
   bool get isUnread => time.contains('min') || time.contains('hour');
 
   factory NotificationItem.fromJson(Map<String, dynamic> json) {
+    final boldRaw = json['bodyBoldParts'];
+    final bodyBoldParts = boldRaw is List
+        ? boldRaw.map((e) => '$e').where((e) => e.isNotEmpty).toList()
+        : <String>[];
     return NotificationItem(
       id: '${json['id'] ?? ''}',
       type: _parseType('${json['type'] ?? ''}'),
@@ -33,6 +42,8 @@ class NotificationItem {
       avatarText: '${json['avatarText'] ?? ''}',
       period: '${json['period'] ?? 'Today'}',
       imageUrl: json['imageUrl'] == null ? null : '${json['imageUrl']}',
+      avatarUrl: json['avatarUrl'] == null ? null : '${json['avatarUrl']}',
+      bodyBoldParts: bodyBoldParts,
     );
   }
 

@@ -268,14 +268,15 @@ app.post('/api/auth/register-with-google', async (req, res) => {
       user = await User.create(userData);
     }
 
-    const accessToken = authService.generateAccessToken(user);
-    const refreshToken = authService.generateRefreshToken(user);
-    await authService.storeRefreshToken(user.id, refreshToken);
+    const keepLoggedIn = true; // Mobile app: keep logged in until logout
+    const accessToken = authService.generateAccessToken(user, keepLoggedIn);
+    const refreshToken = authService.generateRefreshToken(user, keepLoggedIn);
+    await authService.storeRefreshToken(user.id, refreshToken, keepLoggedIn);
 
     res.json({
       message: 'Registration successful',
       user: { id: user.id, name: user.name, email: user.email, profile_picture_url: user.profile_picture_url },
-      tokens: { accessToken, refreshToken, accessTokenExpiresIn: '15m', refreshTokenExpiresIn: '7d' },
+      tokens: { accessToken, refreshToken, accessTokenExpiresIn: '365d', refreshTokenExpiresIn: '365d' },
     });
   } catch (error) {
     console.error('Register with Google error:', error);
@@ -286,7 +287,7 @@ app.post('/api/auth/register-with-google', async (req, res) => {
 // Login with phone - verify Firebase ID token (from phone auth), find user by phone
 app.post('/api/auth/login-with-phone', async (req, res) => {
   try {
-    const { idToken } = req.body || {};
+    const { idToken, rememberMe } = req.body || {};
     if (!idToken || typeof idToken !== 'string') {
       return res.status(400).json({ error: 'idToken is required' });
     }
@@ -316,17 +317,18 @@ app.post('/api/auth/login-with-phone', async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'No account found. Please register first.' });
     }
-    const accessToken = authService.generateAccessToken(user);
-    const refreshToken = authService.generateRefreshToken(user);
-    await authService.storeRefreshToken(user.id, refreshToken);
+    const keepLoggedIn = Boolean(rememberMe);
+    const accessToken = authService.generateAccessToken(user, keepLoggedIn);
+    const refreshToken = authService.generateRefreshToken(user, keepLoggedIn);
+    await authService.storeRefreshToken(user.id, refreshToken, keepLoggedIn);
     res.json({
       message: 'Login successful',
       user: { id: user.id, name: user.name, email: user.email },
       tokens: {
         accessToken,
         refreshToken,
-        accessTokenExpiresIn: '15m',
-        refreshTokenExpiresIn: '7d',
+        accessTokenExpiresIn: keepLoggedIn ? '365d' : '15m',
+        refreshTokenExpiresIn: keepLoggedIn ? '365d' : '7d',
       },
     });
   } catch (error) {

@@ -49,5 +49,7 @@
 	<string>Hanti riyo needs your location to show nearby properties and personalize your experience.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Hanti riyo needs access to your photos to set your profile picture.</string>
+	<key>GOOGLE_MAPS_API_KEY</key>
+	<string>$(GOOGLE_MAPS_API_KEY)</string>
 </dict>
 </plist>

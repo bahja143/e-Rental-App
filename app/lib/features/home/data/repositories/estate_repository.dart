@@ -247,6 +247,9 @@ class EstateRepository {
       }
     }
 
+    final lat = json['lat'] != null ? _toDouble(json['lat']) : null;
+    final lng = json['lng'] != null ? _toDouble(json['lng']) : null;
+
     return EstateItem(
       id: '${json['id'] ?? ''}',
       title: '${json['title'] ?? ''}',
@@ -255,6 +258,8 @@ class EstateRepository {
       imageUrl: imageUrl,
       rating: json['rating'] == null ? null : _toDouble(json['rating']),
       category: category?.isNotEmpty == true ? category : null,
+      lat: lat,
+      lng: lng,
     );
   }
 
@@ -319,73 +324,17 @@ class EstateRepository {
   ];
 
   static const List<EstateItem> _fallbackNearbyEstates = [
-    EstateItem(
-      id: '201',
-      title: 'Wings Tower',
-      location: 'Jakarta, Indonesia',
-      price: 220,
-      imageUrl: 'https://www.figma.com/api/mcp/asset/bde4e198-8bfa-4ef7-bb5e-3ae6c4a73592',
-      rating: 4.9,
-    ),
-    EstateItem(
-      id: '202',
-      title: 'Mill Sper House',
-      location: 'Jakarta, Indonesia',
-      price: 271,
-      imageUrl: 'https://www.figma.com/api/mcp/asset/405837a1-6d0e-46e5-9242-c160f4a48f09',
-      rating: 4.8,
-    ),
-    EstateItem(
-      id: '203',
-      title: 'Bridgeland Modern House',
-      location: 'Semarang, Indonesia',
-      price: 260,
-      imageUrl: 'https://www.figma.com/api/mcp/asset/44749882-3416-4060-acc7-3e7953fdede5',
-      rating: 4.7,
-    ),
-    EstateItem(
-      id: '204',
-      title: 'Flower Heaven Apartment',
-      location: 'Bali, Indonesia',
-      price: 370,
-      imageUrl: 'https://www.figma.com/api/mcp/asset/477bfe3b-5167-4a49-a126-134d593b70b5',
-      rating: 4.9,
-    ),
+    EstateItem(id: '201', title: 'Wings Tower', location: 'Jakarta, Indonesia', price: 220, imageUrl: 'https://www.figma.com/api/mcp/asset/bde4e198-8bfa-4ef7-bb5e-3ae6c4a73592', rating: 4.9, lat: -6.2088, lng: 106.8456),
+    EstateItem(id: '202', title: 'Mill Sper House', location: 'Jakarta, Indonesia', price: 271, imageUrl: 'https://www.figma.com/api/mcp/asset/405837a1-6d0e-46e5-9242-c160f4a48f09', rating: 4.8, lat: -6.2150, lng: 106.8380),
+    EstateItem(id: '203', title: 'Bridgeland Modern House', location: 'Semarang, Indonesia', price: 260, imageUrl: 'https://www.figma.com/api/mcp/asset/44749882-3416-4060-acc7-3e7953fdede5', rating: 4.7, lat: -6.9667, lng: 110.4167),
+    EstateItem(id: '204', title: 'Flower Heaven Apartment', location: 'Bali, Indonesia', price: 370, imageUrl: 'https://www.figma.com/api/mcp/asset/477bfe3b-5167-4a49-a126-134d593b70b5', rating: 4.9, lat: -8.4095, lng: 115.1889),
   ];
 
   static const List<EstateItem> _fallbackSearchEstates = [
-    EstateItem(
-      id: '301',
-      title: 'Bungalow House',
-      location: 'Jakarta, Indonesia',
-      price: 235,
-      imageUrl: 'https://www.figma.com/api/mcp/asset/300aee5e-f567-4697-b22e-c21d4f650b05',
-      rating: 4.7,
-    ),
-    EstateItem(
-      id: '302',
-      title: 'Bridgeland Modern House',
-      location: 'Semarang, Indonesia',
-      price: 260,
-      imageUrl: 'https://www.figma.com/api/mcp/asset/e4dc8313-46ee-4d2c-b641-00417db80d6c',
-      rating: 4.9,
-    ),
-    EstateItem(
-      id: '303',
-      title: 'Mill Sper House',
-      location: 'Jakarta, Indonesia',
-      price: 271,
-      imageUrl: 'https://www.figma.com/api/mcp/asset/636ac4a4-a1a5-461a-8639-576a12397eae',
-      rating: 4.8,
-    ),
-    EstateItem(
-      id: '304',
-      title: 'Flower Heaven Apartment',
-      location: 'Bali, Indonesia',
-      price: 370,
-      imageUrl: 'https://www.figma.com/api/mcp/asset/3515ef49-6b18-486e-823c-f26d397ebf4d',
-      rating: 4.7,
-    ),
+    EstateItem(id: '301', title: 'Bungalow House', location: 'Jakarta, Indonesia', price: 235, imageUrl: 'https://www.figma.com/api/mcp/asset/300aee5e-f567-4697-b22e-c21d4f650b05', rating: 4.7, lat: -6.2120, lng: 106.8520),
+    EstateItem(id: '302', title: 'Bridgeland Modern House', location: 'Semarang, Indonesia', price: 260, imageUrl: 'https://www.figma.com/api/mcp/asset/e4dc8313-46ee-4d2c-b641-00417db80d6c', rating: 4.9, lat: -6.9667, lng: 110.4167),
+    EstateItem(id: '303', title: 'Mill Sper House', location: 'Jakarta, Indonesia', price: 271, imageUrl: 'https://www.figma.com/api/mcp/asset/636ac4a4-a1a5-461a-8639-576a12397eae', rating: 4.8, lat: -6.2050, lng: 106.8400),
+    EstateItem(id: '304', title: 'Flower Heaven Apartment', location: 'Bali, Indonesia', price: 370, imageUrl: 'https://www.figma.com/api/mcp/asset/3515ef49-6b18-486e-823c-f26d397ebf4d', rating: 4.7, lat: -8.4095, lng: 115.1889),
   ];
 
   static const List<TopLocationItem> _fallbackTopLocations = [
@@ -398,6 +347,14 @@ class EstateRepository {
       avatarUrl: 'https://www.figma.com/api/mcp/asset/14f407e0-9528-4af0-af3a-1426c7fe4b43',
     ),
     TopLocationItem(
+      name: 'Maldives',
+      avatarUrl: 'https://images.unsplash.com/photo-1514282401047-d79a71a590e8?w=400',
+    ),
+    TopLocationItem(
+      name: 'Semarang',
+      avatarUrl: 'https://images.unsplash.com/photo-1589320002388-f268473cfc44?w=400',
+    ),
+    TopLocationItem(
       name: 'Yogyakarta',
       avatarUrl: 'https://www.figma.com/api/mcp/asset/ef3cb24b-a64f-4cc2-8509-5ae33e6b000b',
     ),
@@ -408,6 +365,8 @@ class EstateRepository {
       id: 'a1',
       name: 'Amanda',
       avatarUrl: 'https://www.figma.com/api/mcp/asset/402afd5f-35ea-481d-a8fe-ba2d6f65e6e6',
+      rating: 5,
+      soldCount: 112,
     ),
     TopAgentItem(
       id: 'a2',
@@ -423,6 +382,16 @@ class EstateRepository {
       id: 'a4',
       name: 'Andrew',
       avatarUrl: 'https://www.figma.com/api/mcp/asset/ade435f9-615c-4b22-8293-eb45b30823e1',
+    ),
+    TopAgentItem(
+      id: 'a5',
+      name: 'Michael',
+      avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400',
+    ),
+    TopAgentItem(
+      id: 'a6',
+      name: 'Tobi',
+      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400',
     ),
   ];
 }

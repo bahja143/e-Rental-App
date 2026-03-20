@@ -309,24 +309,26 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 20),
-                        _buildSectionHeader(context, 'Top Locations', right: 'explore', onSeeAll: () => context.push(AppRoutes.locationDetail('Jakarta'))),
+                        _buildSectionHeader(context, 'Top Locations', right: 'explore', onSeeAll: () => context.push(AppRoutes.topLocations)),
                         const SizedBox(height: 12),
                         _buildTopLocations(context, data.topLocations),
                         const SizedBox(height: 20),
-                        _buildSectionHeader(context, 'Top Estate Agent', right: 'explore', onSeeAll: () => context.push(AppRoutes.agentProfile('1'))),
+                        _buildSectionHeader(context, 'Top Estate Agent', right: 'explore', onSeeAll: () => context.push(AppRoutes.topAgents)),
                         const SizedBox(height: 12),
                         _buildTopAgents(context, data.topAgents),
                         const SizedBox(height: 20),
-                        _buildSectionHeader(context, 'Explore Nearby Estates', right: null),
-                        const SizedBox(height: 16),
                       ],
                     ),
                   ),
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 32, 24, 100),
-                    child: GridView.count(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSectionHeader(context, 'Explore Nearby Estates', right: null),
+                        GridView.count(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       crossAxisCount: 2,
@@ -348,6 +350,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           )
                           .toList(),
+                        ),
+                      ],
                     ),
                   ),
                 ),

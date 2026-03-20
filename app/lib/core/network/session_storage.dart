@@ -5,16 +5,22 @@ class SessionStorage {
   SessionStorage._();
 
   static const _keyToken = 'auth_token';
+  static const _keyRefreshToken = 'auth_refresh_token';
   static const _keyUserId = 'auth_user_id';
   static const _keyLastRoute = 'last_route';
 
-  static Future<void> save({String? token, String? userId}) async {
+  static Future<void> save({String? token, String? refreshToken, String? userId}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       if (token != null && token.isNotEmpty) {
         await prefs.setString(_keyToken, token);
       } else {
         await prefs.remove(_keyToken);
+      }
+      if (refreshToken != null && refreshToken.isNotEmpty) {
+        await prefs.setString(_keyRefreshToken, refreshToken);
+      } else {
+        await prefs.remove(_keyRefreshToken);
       }
       if (userId != null && userId.isNotEmpty) {
         await prefs.setString(_keyUserId, userId);
@@ -29,10 +35,11 @@ class SessionStorage {
       final prefs = await SharedPreferences.getInstance();
       return {
         'token': prefs.getString(_keyToken),
+        'refreshToken': prefs.getString(_keyRefreshToken),
         'userId': prefs.getString(_keyUserId),
       };
     } catch (_) {
-      return {'token': null, 'userId': null};
+      return {'token': null, 'refreshToken': null, 'userId': null};
     }
   }
 
@@ -56,6 +63,7 @@ class SessionStorage {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_keyToken);
+      await prefs.remove(_keyRefreshToken);
       await prefs.remove(_keyUserId);
       await prefs.remove(_keyLastRoute);
     } catch (_) {}

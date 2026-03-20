@@ -5,6 +5,9 @@ import 'app_colors.dart';
 class AppTheme {
   AppTheme._();
 
+  /// Minimum font size applied across the app (home, explore, auth, etc.)
+  static const double minFontSize = 10;
+
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
@@ -104,7 +107,7 @@ class AppTheme {
           letterSpacing: 0.36,
         ),
         bodySmall: GoogleFonts.raleway(
-          fontSize: 10,
+          fontSize: minFontSize,
           fontWeight: FontWeight.w400,
           color: AppColors.greyMedium,
           letterSpacing: 0.3,
@@ -114,6 +117,17 @@ class AppTheme {
           fontWeight: FontWeight.w600,
           color: AppColors.textSecondary,
           letterSpacing: 0.36,
+        ),
+        labelMedium: GoogleFonts.raleway(
+          fontSize: minFontSize,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textSecondary,
+        ),
+        labelSmall: GoogleFonts.raleway(
+          fontSize: minFontSize,
+          fontWeight: FontWeight.w400,
+          color: AppColors.greyMedium,
+          letterSpacing: 0.3,
         ),
       ),
     );

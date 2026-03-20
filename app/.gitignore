@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# API keys (use *.example templates in repo; copy to these filenames locally)
+android/app/google-maps-api-key.txt
+ios/Flutter/GoogleMapsKey.xcconfig

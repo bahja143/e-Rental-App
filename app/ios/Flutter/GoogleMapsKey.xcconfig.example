@@ -1,0 +1,4 @@
+// Copy this file to GoogleMapsKey.xcconfig and paste your key
+// Get your key from https://console.cloud.google.com/
+// Enable: Maps SDK for Android, Maps SDK for iOS
+GOOGLE_MAPS_API_KEY=PASTE_YOUR_GOOGLE_MAPS_API_KEY_HERE

@@ -1,16 +1,22 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../explore/widgets/filter_modal.dart';
 import '../data/models/estate_item.dart';
 import '../data/repositories/estate_repository.dart';
+import '../widgets/estate_card.dart';
 import '../../../shared/widgets/remote_image.dart';
 
+/// Location detail screen – Figma 1pH0qfybRFvvBbWUCcN5Lm (Hanti riyo – Copy) node 19-1791
 class LocationDetailScreen extends StatefulWidget {
-  const LocationDetailScreen({super.key, this.locationName = 'Mogadishu'});
+  const LocationDetailScreen({super.key, this.locationName = 'Mogadishu', this.rank});
 
   final String locationName;
+  final int? rank;
 
   @override
   State<LocationDetailScreen> createState() => _LocationDetailScreenState();
@@ -19,443 +25,647 @@ class LocationDetailScreen extends StatefulWidget {
 class _LocationDetailScreenState extends State<LocationDetailScreen> {
   final _repo = EstateRepository();
   late final Future<List<EstateItem>> _estatesFuture;
-  Set<String> _savedIds = <String>{};
+  Set<String> _savedIds = {};
+  String _searchQuery = '';
+  bool _isGrid = false; // Figma 19-1791: list view default
+  bool _searchFocused = false;
+  final _searchFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
-    _estatesFuture = _load();
+    _estatesFuture = _repo.searchEstates(widget.locationName);
     _loadSavedIds();
-  }
-
-  Future<List<EstateItem>> _load() async {
-    final list = await _repo.searchEstates(widget.locationName);
-    return list;
-  }
-
-  Future<void> _loadSavedIds() async {
-    final ids = await _repo.getSavedEstateIds();
-    if (!mounted) return;
-    setState(() => _savedIds = ids);
-  }
-
-  Future<void> _toggleSaved(String listingId) async {
-    if (listingId.isEmpty) return;
-    final isSaved = _savedIds.contains(listingId);
-    final ok = isSaved ? await _repo.removeSavedEstate(listingId) : await _repo.addSavedEstate(listingId);
-    if (!mounted || !ok) return;
-    setState(() {
-      if (isSaved) {
-        _savedIds.remove(listingId);
-      } else {
-        _savedIds.add(listingId);
-      }
+    _searchFocusNode.addListener(() {
+      if (mounted) setState(() => _searchFocused = _searchFocusNode.hasFocus);
     });
   }
 
   @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-
-    return FutureBuilder<List<EstateItem>>(
-      future: _estatesFuture,
-      builder: (context, snapshot) {
-        final estates = snapshot.data ?? const <EstateItem>[];
-        final primary = estates.isNotEmpty ? estates.first : null;
-        final second = estates.length > 1 ? estates[1] : primary;
-        final third = estates.length > 2 ? estates[2] : primary;
-        return Scaffold(
-          backgroundColor: Colors.white,
-          body: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 14, 24, 20),
-              child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                height: 325,
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 68,
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(24),
-                              child: RemoteImage(
-                                url: primary?.imageUrl ?? 'https://www.figma.com/api/mcp/asset/077f5a9e-4cc0-4723-94ea-214604b0e5ba',
-                                fit: BoxFit.cover,
-                                errorWidget: Container(color: AppColors.greySoft1),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            left: 14,
-                            top: 14,
-                            child: _circleButton(Icons.arrow_back_ios_new, onTap: context.pop),
-                          ),
-                          Positioned(
-                            left: 14,
-                            bottom: 14,
-                            child: Container(
-                              width: 53,
-                              height: 53,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFE7B904),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                '#3',
-                                style: text.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      flex: 32,
-                      child: Column(
-                        children: [
-                          Expanded(
-                            flex: 65,
-                            child: Stack(
-                              children: [
-                                Positioned.fill(
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(24),
-                                    child: RemoteImage(
-                                      url: second?.imageUrl ?? 'https://www.figma.com/api/mcp/asset/8bcbc523-1adc-4ae2-ae9b-43ebf0b16662',
-                                      fit: BoxFit.cover,
-                                      errorWidget: Container(color: AppColors.greySoft1),
-                                    ),
-                                  ),
-                                ),
-                                Positioned(
-                                  top: 14,
-                                  right: 14,
-                                  child: _circleButton(Icons.tune_rounded, onTap: () => FilterModal.show(context)),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Expanded(
-                            flex: 35,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(24),
-                              child: RemoteImage(
-                                url: third?.imageUrl ?? 'https://www.figma.com/api/mcp/asset/68972832-a0a8-46ff-a2e5-99cff01b00ff',
-                                fit: BoxFit.cover,
-                                errorWidget: Container(color: AppColors.greySoft1),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                widget.locationName,
-                style: text.headlineMedium?.copyWith(
-                  fontSize: 46,
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  height: 1.1,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Our recommended real estates in ${widget.locationName}',
-                style: text.bodyMedium?.copyWith(color: AppColors.greyMedium, fontSize: 20),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                height: 70,
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                decoration: BoxDecoration(color: AppColors.greySoft1, borderRadius: BorderRadius.circular(20)),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Modern House',
-                        style: text.titleMedium?.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    const Icon(Icons.search_rounded, color: AppColors.textPrimary),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  RichText(
-                    text: TextSpan(
-                      children: [
-                        TextSpan(
-                          text: 'Found ',
-                          style: text.titleLarge?.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w500),
-                        ),
-                        TextSpan(
-                          text: '${estates.length} ',
-                          style: text.titleLarge?.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w800),
-                        ),
-                        TextSpan(
-                          text: 'estates',
-                          style: text.titleLarge?.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w500),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Spacer(),
-                  Container(
-                    height: 40,
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(color: AppColors.greySoft1, borderRadius: BorderRadius.circular(22)),
-                    child: Row(
-                      children: [
-                        const SizedBox(
-                          width: 30,
-                          height: 30,
-                          child: Icon(Icons.grid_view_rounded, color: AppColors.greyBarelyMedium, size: 17),
-                        ),
-                        Container(
-                          width: 30,
-                          height: 30,
-                          decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                          child: const Icon(Icons.view_agenda_outlined, color: AppColors.textPrimary, size: 16),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  _FilterChip(label: 'House', onTap: () => FilterModal.show(context)),
-                  const SizedBox(width: 10),
-                  _FilterChip(label: r'$250 - $450', onTap: () => FilterModal.show(context)),
-                ],
-              ),
-              const SizedBox(height: 20),
-              _HorizontalEstateCard(
-                imageUrl: primary?.imageUrl ?? 'https://www.figma.com/api/mcp/asset/287cbe40-257d-4858-9e2e-9a8c01de893a',
-                title: primary?.title ?? 'Flower Heaven House',
-                price: '\$ ${(primary?.price ?? 370).toInt()}',
-                location: primary?.location ?? widget.locationName,
-                rating: primary?.rating ?? 4.7,
-                isSaved: _savedIds.contains(primary?.id ?? ''),
-                onToggleSaved: () => _toggleSaved(primary?.id ?? ''),
-                onTap: () => context.push(AppRoutes.estateDetail(primary?.id ?? '1')),
-              ),
-            ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
+  void dispose() {
+    _searchFocusNode.dispose();
+    super.dispose();
   }
 
-  Widget _circleButton(IconData icon, {required VoidCallback onTap}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(25),
-      child: Ink(
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.85),
-          borderRadius: BorderRadius.circular(25),
-        ),
-        child: Icon(icon, size: 18, color: AppColors.textPrimary),
-      ),
-    );
+  Future<void> _loadSavedIds() async {
+    final ids = await _repo.getSavedEstateIds();
+    if (mounted) setState(() => _savedIds = ids);
   }
-}
 
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({required this.label, this.onTap});
+  Future<void> _toggleSaved(EstateItem e) async {
+    if (e.id.isEmpty) return;
+    final saved = _savedIds.contains(e.id);
+    final ok = saved ? await _repo.removeSavedEstate(e.id) : await _repo.addSavedEstate(e.id);
+    if (!mounted || !ok) return;
+    setState(() {
+      if (saved) _savedIds.remove(e.id);
+      else _savedIds.add(e.id);
+    });
+  }
 
-  final String label;
-  final VoidCallback? onTap;
+  List<EstateItem> _filter(List<EstateItem> list) {
+    if (_searchQuery.trim().isEmpty) return list;
+    final q = _searchQuery.toLowerCase();
+    return list.where((e) => e.title.toLowerCase().contains(q) || e.location.toLowerCase().contains(q)).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 50,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(color: const Color(0xFFEDE8C2), borderRadius: BorderRadius.circular(25)),
-        child: Row(
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: const BoxDecoration(color: Color(0xFFE7B904), shape: BoxShape.circle),
-            child: const Icon(Icons.close, size: 14, color: Colors.white),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            label,
-            style: text.bodySmall?.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-          ),
-        ],
-        ),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: FutureBuilder<List<EstateItem>>(
+        future: _estatesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+          }
+          final all = snapshot.data ?? [];
+          final list = _filter(all);
+          final img1 = all.isNotEmpty ? all[0].imageUrl : '';
+          final img2 = all.length > 1 ? all[1].imageUrl : img1;
+          final img3 = all.length > 2 ? all[2].imageUrl : img1;
+          return SafeArea(
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _HeroGallery(
+                        img1: img1,
+                        img2: img2,
+                        img3: img3,
+                        rank: widget.rank,
+                        onBack: () => context.pop(),
+                        onFilter: () => FilterModal.show(context),
+                      ),
+                      _TitleSection(locationName: widget.locationName),
+                      _SearchBar(
+                        hint: 'Modern House',
+                        focusNode: _searchFocusNode,
+                        focused: _searchFocused,
+                        onChanged: (v) => setState(() => _searchQuery = v),
+                      ),
+                      _ListHeader(
+                        count: list.length,
+                        isGrid: _isGrid,
+                        onGridTap: () => setState(() => _isGrid = true),
+                        onListTap: () => setState(() => _isGrid = false),
+                      ),
+                      _FilterChips(onFilter: () => FilterModal.show(context)),
+                    ],
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 100),
+                  sliver: _isGrid
+                      ? SliverGrid(
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 10,
+                            crossAxisSpacing: 7,
+                            childAspectRatio: 0.63,
+                          ),
+                          delegate: SliverChildBuilderDelegate(
+                            (_, i) => _EstateCard(
+                              estate: list[i],
+                              isSaved: _savedIds.contains(list[i].id),
+                              onToggleSaved: () => _toggleSaved(list[i]),
+                              onTap: () => context.push(AppRoutes.estateDetail(list[i].id)),
+                              isGrid: true,
+                            ),
+                            childCount: list.length,
+                          ),
+                        )
+                      : SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (_, i) => Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _EstateCard(
+                                estate: list[i],
+                                isSaved: _savedIds.contains(list[i].id),
+                                onToggleSaved: () => _toggleSaved(list[i]),
+                                onTap: () => context.push(AppRoutes.estateDetail(list[i].id)),
+                                isGrid: false,
+                              ),
+                            ),
+                            childCount: list.length,
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 }
 
-class _HorizontalEstateCard extends StatelessWidget {
-  const _HorizontalEstateCard({
-    required this.imageUrl,
-    required this.title,
-    required this.price,
-    required this.location,
-    required this.rating,
-    required this.isSaved,
-    required this.onToggleSaved,
-    required this.onTap,
+// ─── Figma 19-1791: Hero gallery – asymmetric 3-image layout ─────────────────────
+
+class _HeroGallery extends StatelessWidget {
+  const _HeroGallery({
+    required this.img1,
+    required this.img2,
+    required this.img3,
+    this.rank,
+    required this.onBack,
+    required this.onFilter,
   });
 
-  final String imageUrl;
-  final String title;
-  final String price;
-  final String location;
-  final double rating;
-  final bool isSaved;
-  final VoidCallback onToggleSaved;
-  final VoidCallback onTap;
+  final String img1;
+  final String img2;
+  final String img3;
+  final int? rank;
+  final VoidCallback onBack;
+  final VoidCallback onFilter;
+
+  static const _borderWhite = BorderRadius.only(
+    topLeft: Radius.circular(50),
+    topRight: Radius.circular(25),
+    bottomLeft: Radius.circular(50),
+    bottomRight: Radius.circular(25),
+  );
+  static const _rightTop = BorderRadius.only(
+    topLeft: Radius.circular(25),
+    topRight: Radius.circular(50),
+    bottomLeft: Radius.circular(25),
+    bottomRight: Radius.circular(25),
+  );
+  static const _rightBottom = BorderRadius.only(
+    topLeft: Radius.circular(25),
+    topRight: Radius.circular(25),
+    bottomLeft: Radius.circular(25),
+    bottomRight: Radius.circular(50),
+  );
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: AppColors.greySoft1, borderRadius: BorderRadius.circular(25)),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+      child: SizedBox(
+        height: 330,
         child: Row(
           children: [
-            SizedBox(
-              width: 168,
-              height: 140,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
+            Expanded(
+              flex: 68,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: ClipRRect(
+                      borderRadius: _borderWhite,
                       child: RemoteImage(
-                        url: imageUrl,
+                        url: img1,
                         fit: BoxFit.cover,
-                        errorWidget: Container(color: AppColors.greySoft2),
+                        errorWidget: Container(color: AppColors.greySoft1),
                       ),
                     ),
+                  ),
+                  Positioned(left: 24, top: 24, child: _CircleBtn(icon: Icons.arrow_back_ios_new, onTap: onBack)),
+                  if (rank != null)
                     Positioned(
-                      left: 8,
-                      bottom: 8,
+                      left: 24,
+                      bottom: 24,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        width: 53,
+                        height: 53,
                         decoration: BoxDecoration(
-                          color: const Color(0xAA234F68),
-                          borderRadius: BorderRadius.circular(8),
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(17),
                         ),
+                        alignment: Alignment.center,
                         child: Text(
-                          'House',
-                          style: text.bodySmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 10),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 8,
-                      top: 8,
-                      child: GestureDetector(
-                        onTap: onToggleSaved,
-                        child: Container(
-                          width: 25,
-                          height: 25,
-                          decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                          child: Icon(
-                            isSaved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                            size: 14,
-                            color: AppColors.primary,
+                          '#$rank',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                            letterSpacing: 0.36,
                           ),
                         ),
                       ),
                     ),
-                  ],
-                ),
+                ],
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 10),
             Expanded(
-              child: SizedBox(
-                height: 140,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: text.titleMedium?.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w700,
-                        height: 1.3,
+              flex: 32,
+              child: Column(
+                children: [
+                  Expanded(
+                    flex: 22,
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: ClipRRect(
+                            borderRadius: _rightTop,
+                            child: RemoteImage(
+                              url: img2,
+                              fit: BoxFit.cover,
+                              errorWidget: Container(color: AppColors.greySoft1),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: 26,
+                          right: 0,
+                          child: _CircleBtn(icon: Icons.tune_rounded, onTap: onFilter),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    flex: 12,
+                    child: ClipRRect(
+                      borderRadius: _rightBottom,
+                      child: RemoteImage(
+                        url: img3,
+                        fit: BoxFit.cover,
+                        errorWidget: Container(color: AppColors.greySoft1),
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        const Icon(Icons.star_rounded, color: Color(0xFFFFC42D), size: 12),
-                        const SizedBox(width: 2),
-                        Text(rating.toStringAsFixed(1), style: text.bodySmall?.copyWith(color: AppColors.greyMedium, fontWeight: FontWeight.w700)),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on_rounded, color: AppColors.greyMedium, size: 11),
-                        const SizedBox(width: 2),
-                        Expanded(
-                          child: Text(
-                            location,
-                            overflow: TextOverflow.ellipsis,
-                            style: text.bodySmall?.copyWith(color: AppColors.greyMedium, fontSize: 10),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          price,
-                          style: text.titleLarge?.copyWith(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 28,
-                          ),
-                        ),
-                        Text('/month', style: text.bodySmall?.copyWith(color: AppColors.greyMedium, fontSize: 10)),
-                      ],
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _CircleBtn extends StatelessWidget {
+  const _CircleBtn({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(25),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+          child: Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: Icon(icon, size: 18, color: AppColors.textPrimary),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Figma 19-1799: Title section ──────────────────────────────────────────────
+
+class _TitleSection extends StatelessWidget {
+  const _TitleSection({required this.locationName});
+
+  final String locationName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            locationName,
+            style: GoogleFonts.lato(
+              fontSize: 25,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+              letterSpacing: 0.75,
+              height: 40 / 25,
+            ),
+          ),
+          const SizedBox(height: 4),
+          SizedBox(
+            width: 327,
+            child: Text(
+              'Our recommended real estates in $locationName',
+              style: GoogleFonts.raleway(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: AppColors.greyMedium,
+                letterSpacing: 0.36,
+                height: 20 / 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Search bar ─────────────────────────────────────────────────────────────────
+
+class _SearchBar extends StatelessWidget {
+  const _SearchBar({
+    required this.hint,
+    required this.focusNode,
+    required this.focused,
+    required this.onChanged,
+  });
+
+  final String hint;
+  final FocusNode focusNode;
+  final bool focused;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+      height: 70,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: AppColors.greySoft1,
+        borderRadius: BorderRadius.circular(20),
+        border: focused ? Border.all(color: AppColors.primary, width: 1.5) : null,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              focusNode: focusNode,
+              onChanged: onChanged,
+              decoration: InputDecoration(
+                hintText: hint,
+                hintStyle: GoogleFonts.raleway(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                  letterSpacing: 0.36,
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 22),
+              ),
+              style: GoogleFonts.raleway(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+                letterSpacing: 0.36,
+              ),
+            ),
+          ),
+          const Icon(Icons.search, color: AppColors.textPrimary, size: 20),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Figma 19-1656: ItemHeaderTextView – Found X estates + view toggle ───────────
+
+class _ListHeader extends StatelessWidget {
+  const _ListHeader({
+    required this.count,
+    required this.isGrid,
+    required this.onGridTap,
+    required this.onListTap,
+  });
+
+  final int count;
+  final bool isGrid;
+  final VoidCallback onGridTap;
+  final VoidCallback onListTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+      child: Row(
+        children: [
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: 'Found ',
+                  style: GoogleFonts.raleway(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textPrimary,
+                    letterSpacing: 0.54,
+                  ),
+                ),
+                TextSpan(
+                  text: '$count ',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                    letterSpacing: 0.54,
+                  ),
+                ),
+                TextSpan(
+                  text: 'estates',
+                  style: GoogleFonts.raleway(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textPrimary,
+                    letterSpacing: 0.54,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.greySoft1,
+              borderRadius: BorderRadius.circular(100),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _ViewBtn(
+                  icon: Icons.grid_view_rounded,
+                  active: isGrid,
+                  onTap: onGridTap,
+                ),
+                const SizedBox(width: 5),
+                _ViewBtn(
+                  icon: Icons.view_agenda_outlined,
+                  active: !isGrid,
+                  onTap: onListTap,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ViewBtn extends StatelessWidget {
+  const _ViewBtn({required this.icon, required this.active, required this.onTap});
+
+  final IconData icon;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          color: active ? Colors.white : Colors.transparent,
+          shape: BoxShape.circle,
+          boxShadow: active
+              ? [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 4, offset: const Offset(0, 2))]
+              : null,
+        ),
+        child: Icon(
+          icon,
+          size: icon == Icons.grid_view_rounded ? 17 : 16,
+          color: active ? AppColors.textPrimary : AppColors.greyBarelyMedium,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Figma 19-1795: Filter chips ─────────────────────────────────────────────────
+
+class _FilterChips extends StatelessWidget {
+  const _FilterChips({required this.onFilter});
+
+  final VoidCallback onFilter;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
+      child: Row(
+        children: [
+          _Chip(label: 'House', fontStyle: ChipFontStyle.raleway, onTap: onFilter),
+          const SizedBox(width: 10),
+          _Chip(label: r'$250 - $450', fontStyle: ChipFontStyle.montserrat, onTap: onFilter),
+        ],
+      ),
+    );
+  }
+}
+
+enum ChipFontStyle { raleway, montserrat }
+
+class _Chip extends StatelessWidget {
+  const _Chip({required this.label, required this.fontStyle, required this.onTap});
+
+  final String label;
+  final ChipFontStyle fontStyle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(10, 10, 20, 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEDE8C2),
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(25),
+              ),
+              child: Icon(Icons.close, size: 10.8, color: Colors.white),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: fontStyle == ChipFontStyle.raleway
+                  ? GoogleFonts.raleway(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textPrimary,
+                      letterSpacing: 0.3,
+                    )
+                  : GoogleFonts.montserrat(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w400,
+                      color: AppColors.textPrimary,
+                      letterSpacing: 0.3,
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Estate card wrapper (grid vs list) ──────────────────────────────────────────
+
+class _EstateCard extends StatelessWidget {
+  const _EstateCard({
+    required this.estate,
+    required this.isSaved,
+    required this.onToggleSaved,
+    required this.onTap,
+    required this.isGrid,
+  });
+
+  final EstateItem estate;
+  final bool isSaved;
+  final VoidCallback onToggleSaved;
+  final VoidCallback onTap;
+  final bool isGrid;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isGrid) {
+      return EstateCard.vertical(
+        title: estate.title,
+        location: estate.location,
+        price: estate.price,
+        rating: estate.rating,
+        imageUrl: estate.imageUrl,
+        category: estate.displayCategory,
+        isSaved: isSaved,
+        onToggleSaved: onToggleSaved,
+        onTap: onTap,
+      );
+    }
+    return EstateCard.horizontal(
+      title: estate.title,
+      location: estate.location,
+      price: estate.price,
+      rating: estate.rating,
+      imageUrl: estate.imageUrl,
+      category: estate.displayCategory,
+      isSaved: isSaved,
+      onToggleSaved: onToggleSaved,
+      onTap: onTap,
+      fullWidth: true,
     );
   }
 }

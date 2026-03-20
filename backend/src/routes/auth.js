@@ -86,7 +86,7 @@ router.post('/login', async (req, res) => {
 // Verify OTP and complete login
 router.post('/verify-otp', async (req, res) => {
   try {
-    const { email, otp } = req.body;
+    const { email, otp, rememberMe } = req.body;
 
     // Validate input
     if (!email || !otp) {
@@ -102,12 +102,10 @@ router.post('/verify-otp', async (req, res) => {
     // Verify OTP
     await authService.verifyOTP(user, otp);
 
-    // Generate tokens
-    const accessToken = authService.generateAccessToken(user);
-    const refreshToken = authService.generateRefreshToken(user);
-
-    // Store refresh token
-    await authService.storeRefreshToken(user.id, refreshToken);
+    const keepLoggedIn = Boolean(rememberMe);
+    const accessToken = authService.generateAccessToken(user, keepLoggedIn);
+    const refreshToken = authService.generateRefreshToken(user, keepLoggedIn);
+    await authService.storeRefreshToken(user.id, refreshToken, keepLoggedIn);
 
     res.json({
       message: 'Login successful',
@@ -119,8 +117,8 @@ router.post('/verify-otp', async (req, res) => {
       tokens: {
         accessToken,
         refreshToken,
-        accessTokenExpiresIn: '15m',
-        refreshTokenExpiresIn: '7d',
+        accessTokenExpiresIn: keepLoggedIn ? '365d' : '15m',
+        refreshTokenExpiresIn: keepLoggedIn ? '365d' : '7d',
       },
     });
   } catch (error) {
@@ -296,9 +294,10 @@ router.post('/register-with-google', async (req, res) => {
       user = await User.create(userData);
     }
 
-    const accessToken = authService.generateAccessToken(user);
-    const refreshToken = authService.generateRefreshToken(user);
-    await authService.storeRefreshToken(user.id, refreshToken);
+    const keepLoggedIn = true; // Mobile app: keep logged in until logout
+    const accessToken = authService.generateAccessToken(user, keepLoggedIn);
+    const refreshToken = authService.generateRefreshToken(user, keepLoggedIn);
+    await authService.storeRefreshToken(user.id, refreshToken, keepLoggedIn);
 
     res.json({
       message: 'Registration successful',
@@ -306,8 +305,8 @@ router.post('/register-with-google', async (req, res) => {
       tokens: {
         accessToken,
         refreshToken,
-        accessTokenExpiresIn: '15m',
-        refreshTokenExpiresIn: '7d',
+        accessTokenExpiresIn: '365d',
+        refreshTokenExpiresIn: '365d',
       },
     });
   } catch (error) {
@@ -319,7 +318,7 @@ router.post('/register-with-google', async (req, res) => {
 // Social login (Google) - verify Firebase ID token, find or create user, return session
 router.post('/social-login', async (req, res) => {
   try {
-    const { provider, idToken, createIfNotExists = true } = req.body;
+    const { provider, idToken, createIfNotExists = true, rememberMe } = req.body;
     if (provider !== 'google' || !idToken || typeof idToken !== 'string') {
       return res.status(400).json({ error: 'Provider and idToken are required' });
     }
@@ -354,9 +353,10 @@ router.post('/social-login', async (req, res) => {
       });
     }
 
-    const accessToken = authService.generateAccessToken(user);
-    const refreshToken = authService.generateRefreshToken(user);
-    await authService.storeRefreshToken(user.id, refreshToken);
+    const keepLoggedIn = Boolean(rememberMe);
+    const accessToken = authService.generateAccessToken(user, keepLoggedIn);
+    const refreshToken = authService.generateRefreshToken(user, keepLoggedIn);
+    await authService.storeRefreshToken(user.id, refreshToken, keepLoggedIn);
 
     res.json({
       message: 'Login successful',
@@ -368,8 +368,8 @@ router.post('/social-login', async (req, res) => {
       tokens: {
         accessToken,
         refreshToken,
-        accessTokenExpiresIn: '15m',
-        refreshTokenExpiresIn: '7d',
+        accessTokenExpiresIn: keepLoggedIn ? '365d' : '15m',
+        refreshTokenExpiresIn: keepLoggedIn ? '365d' : '7d',
       },
     });
   } catch (error) {
@@ -381,7 +381,7 @@ router.post('/social-login', async (req, res) => {
 // Login with phone - verify Firebase ID token (from phone auth), find user by phone
 router.post('/login-with-phone', async (req, res) => {
   try {
-    const { idToken } = req.body;
+    const { idToken, rememberMe } = req.body;
     if (!idToken || typeof idToken !== 'string') {
       return res.status(400).json({ error: 'idToken is required' });
     }
@@ -404,17 +404,18 @@ router.post('/login-with-phone', async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'No account found. Please register first.' });
     }
-    const accessToken = authService.generateAccessToken(user);
-    const refreshToken = authService.generateRefreshToken(user);
-    await authService.storeRefreshToken(user.id, refreshToken);
+    const keepLoggedIn = Boolean(rememberMe);
+    const accessToken = authService.generateAccessToken(user, keepLoggedIn);
+    const refreshToken = authService.generateRefreshToken(user, keepLoggedIn);
+    await authService.storeRefreshToken(user.id, refreshToken, keepLoggedIn);
     res.json({
       message: 'Login successful',
       user: { id: user.id, name: user.name, email: user.email },
       tokens: {
         accessToken,
         refreshToken,
-        accessTokenExpiresIn: '15m',
-        refreshTokenExpiresIn: '7d',
+        accessTokenExpiresIn: keepLoggedIn ? '365d' : '15m',
+        refreshTokenExpiresIn: keepLoggedIn ? '365d' : '7d',
       },
     });
   } catch (error) {

@@ -18,6 +18,8 @@ class AppRoutes {
   static const settings = '/settings';
   static const editProfile = '/edit-profile';
   static const explore = '/explore';
+  static const topLocations = '/top-locations';
+  static const topAgents = '/top-agents';
   static const messages = '/messages';
   static const addEstate = '/add-estate';
 
@@ -37,8 +39,14 @@ class AppRoutes {
   static const chat = '/chat';
 
   static String estateDetail(String id) => '$estate/$id';
-  static String agentProfile(String id) => '$agent/$id';
-  static String locationDetail(String name) => '$location/$name';
+  static String agentProfile(String id, {int? rank}) {
+    if (rank != null) return '$agent/$id?rank=$rank';
+    return '$agent/$id';
+  }
+  static String locationDetail(String name, {int? rank}) {
+    if (rank != null) return '$location/$name?rank=$rank';
+    return '$location/$name';
+  }
   static String chatDetail(String id, {String? name}) {
     if (name == null || name.isEmpty) return '$chat/$id';
     return '$chat/$id?name=${Uri.encodeComponent(name)}';

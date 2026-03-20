@@ -48,6 +48,10 @@ class ApiClient {
       final response = await request.close().timeout(ApiConfig.readTimeout);
       final body = await response.transform(utf8.decoder).join();
       _log('GET', url, statusCode: response.statusCode, responseBody: body);
+      if (response.statusCode == 401 && ApiSession.refreshToken != null && !path.contains('/auth/refresh')) {
+        final refreshed = await _tryRefreshTokens();
+        if (refreshed) return await getJson(path, headers: headers, query: query);
+      }
       _throwIfNotOk(response.statusCode, body);
       return _decodeToMap(body);
     } catch (e) {
@@ -113,6 +117,10 @@ class ApiClient {
     final response = await request.close().timeout(ApiConfig.readTimeout);
     final responseBody = await response.transform(utf8.decoder).join();
     _log('POST', url, requestBody: bodyEncoded, statusCode: response.statusCode, responseBody: responseBody);
+    if (response.statusCode == 401 && ApiSession.refreshToken != null && !path.contains('/auth/refresh')) {
+      final refreshed = await _tryRefreshTokens();
+      if (refreshed) return await postJson(path, body: body, headers: headers, query: query);
+    }
     _throwIfNotOk(response.statusCode, responseBody);
     return _decodeToMap(responseBody);
   }
@@ -138,6 +146,10 @@ class ApiClient {
       final response = await request.close().timeout(ApiConfig.readTimeout);
       final responseBody = await response.transform(utf8.decoder).join();
       _log('PUT', url, requestBody: bodyStr, statusCode: response.statusCode, responseBody: responseBody);
+      if (response.statusCode == 401 && ApiSession.refreshToken != null && !path.contains('/auth/refresh')) {
+        final refreshed = await _tryRefreshTokens();
+        if (refreshed) return await putJson(path, body: body, headers: headers, query: query);
+      }
       _throwIfNotOk(response.statusCode, responseBody);
       return _decodeToMap(responseBody);
     } catch (e) {
@@ -163,6 +175,10 @@ class ApiClient {
       final response = await request.close().timeout(ApiConfig.readTimeout);
       final responseBody = await response.transform(utf8.decoder).join();
       _log('DELETE', url, statusCode: response.statusCode, responseBody: responseBody);
+      if (response.statusCode == 401 && ApiSession.refreshToken != null && !path.contains('/auth/refresh')) {
+        final refreshed = await _tryRefreshTokens();
+        if (refreshed) return await deleteJson(path, headers: headers, query: query);
+      }
       _throwIfNotOk(response.statusCode, responseBody);
       if (responseBody.trim().isEmpty) return <String, dynamic>{};
       final decoded = jsonDecode(responseBody);
@@ -191,6 +207,10 @@ class ApiClient {
       final response = await request.close().timeout(ApiConfig.readTimeout);
       final body = await response.transform(utf8.decoder).join();
       _log('GET', url, statusCode: response.statusCode, responseBody: body);
+      if (response.statusCode == 401 && ApiSession.refreshToken != null && !path.contains('/auth/refresh')) {
+        final refreshed = await _tryRefreshTokens();
+        if (refreshed) return await getJsonList(path, headers: headers, query: query);
+      }
       _throwIfNotOk(response.statusCode, body);
       final jsonData = jsonDecode(body);
       if (jsonData is List<dynamic>) return jsonData;
@@ -250,12 +270,44 @@ class ApiClient {
     }
   }
 
+  /// Try to refresh tokens. Returns true if successful.
+  Future<bool> _tryRefreshTokens() async {
+    final rt = ApiSession.refreshToken;
+    if (rt == null || rt.isEmpty) return false;
+    try {
+      final uri = Uri.parse(baseUrl).replace(path: _joinPath('/auth/refresh'));
+      final request = await _httpClient.postUrl(uri).timeout(ApiConfig.connectTimeout);
+      request.headers.set(HttpHeaders.contentTypeHeader, ContentType.json.value);
+      request.headers.set(HttpHeaders.acceptHeader, ContentType.json.value);
+      request.write(jsonEncode({'refreshToken': rt}));
+      final response = await request.close().timeout(ApiConfig.readTimeout);
+      final responseBody = await response.transform(utf8.decoder).join();
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final json = jsonDecode(responseBody) as Map<String, dynamic>?;
+        final tokens = json?['tokens'];
+        if (tokens is Map<String, dynamic>) {
+          final accessToken = '${tokens['accessToken'] ?? ''}';
+          final newRefresh = '${tokens['refreshToken'] ?? ''}';
+          if (accessToken.isNotEmpty) {
+            ApiSession.setSession(
+              token: accessToken,
+              refreshToken: newRefresh.isEmpty ? null : newRefresh,
+              userId: ApiSession.currentUserId,
+            );
+            return true;
+          }
+        }
+      }
+    } catch (_) {}
+    return false;
+  }
+
   void _throwIfNotOk(int statusCode, String body) {
     if (statusCode >= 200 && statusCode < 300) return;
 
-    // Clear session when token is invalid/expired so router redirects to welcome
+    // Clear session when token is invalid/expired (only if we didn't just refresh)
     final isAuthFailure = statusCode == 401 ||
-        (statusCode == 403 && (body.contains('expired') || body.contains('Invalid') && body.contains('token')));
+        (statusCode == 403 && (body.contains('expired') || (body.contains('Invalid') && body.contains('token'))));
     if (isAuthFailure) {
       ApiSession.clear();
     }

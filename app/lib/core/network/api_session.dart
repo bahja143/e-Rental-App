@@ -6,6 +6,7 @@ class ApiSession {
   ApiSession._();
 
   static String? bearerToken;
+  static String? refreshToken;
   static String? currentUserId;
   static final ValueNotifier<int> authState = ValueNotifier<int>(0);
 
@@ -17,16 +18,19 @@ class ApiSession {
 
   static void setSession({
     required String? token,
+    String? refreshToken,
     String? userId,
   }) {
     bearerToken = (token == null || token.isEmpty) ? null : token;
+    ApiSession.refreshToken = (refreshToken == null || refreshToken.isEmpty) ? null : refreshToken;
     currentUserId = (userId == null || userId.isEmpty) ? null : userId;
-    SessionStorage.save(token: bearerToken, userId: currentUserId);
+    SessionStorage.save(token: bearerToken, refreshToken: ApiSession.refreshToken, userId: currentUserId);
     authState.value++;
   }
 
   static void clear() {
     bearerToken = null;
+    refreshToken = null;
     currentUserId = null;
     SessionStorage.clear(); // fire-and-forget
     authState.value++;
@@ -36,6 +40,7 @@ class ApiSession {
   static Future<void> restore() async {
     final stored = await SessionStorage.load();
     bearerToken = stored['token'];
+    refreshToken = stored['refreshToken'];
     currentUserId = stored['userId'];
     if (bearerToken != null && bearerToken!.isNotEmpty) {
       authState.value++;

@@ -14,6 +14,8 @@ import '../../features/home/screens/home_screen.dart';
 import '../../features/home/screens/estate_detail_screen.dart';
 import '../../features/home/screens/agent_profile_screen.dart';
 import '../../features/home/screens/location_detail_screen.dart';
+import '../../features/home/screens/top_locations_screen.dart';
+import '../../features/home/screens/top_agents_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/profile/screens/edit_profile_screen.dart';
@@ -26,7 +28,6 @@ import '../../features/account_setup/screens/account_success_screen.dart';
 import '../../features/saved/screens/saved_screen.dart';
 import '../../features/search/screens/search_screen.dart';
 import '../../features/explore/screens/explore_screen.dart';
-import '../../features/messages/screens/messages_list_screen.dart';
 import '../../features/messages/screens/chat_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
 import '../../features/transaction/screens/transaction_summary_screen.dart';
@@ -128,7 +129,13 @@ GoRouter createAppRouter() {
       GoRoute(path: AppRoutes.search, builder: (_, __) => const SearchScreen()),
       GoRoute(path: AppRoutes.saved, builder: (_, __) => const SavedScreen()),
       GoRoute(path: AppRoutes.profile, builder: (_, __) => const ProfileScreen()),
-      GoRoute(path: AppRoutes.notifications, builder: (_, __) => const NotificationsScreen()),
+      GoRoute(
+        path: AppRoutes.notifications,
+        builder: (_, state) {
+          final tab = state.uri.queryParameters['tab'] ?? 'notification';
+          return NotificationsScreen(initialTab: tab);
+        },
+      ),
       GoRoute(path: AppRoutes.settings, builder: (_, __) => const SettingsScreen()),
       GoRoute(path: AppRoutes.editProfile, builder: (_, __) => const EditProfileScreen()),
       GoRoute(
@@ -139,18 +146,33 @@ GoRouter createAppRouter() {
       ),
       GoRoute(
         path: '${AppRoutes.agent}/:id',
-        builder: (_, state) => AgentProfileScreen(
-          agentId: state.pathParameters['id'] ?? '1',
-        ),
+        builder: (_, state) {
+          final id = state.pathParameters['id'] ?? '1';
+          final rank = int.tryParse(state.uri.queryParameters['rank'] ?? '');
+          return AgentProfileScreen(
+            agentId: id,
+            rank: rank != null && rank > 0 ? rank : null,
+          );
+        },
       ),
       GoRoute(
         path: '${AppRoutes.location}/:name',
-        builder: (_, state) => LocationDetailScreen(
-          locationName: state.pathParameters['name'] ?? 'Mogadishu',
-        ),
+        builder: (_, state) {
+          final name = state.pathParameters['name'] ?? 'Mogadishu';
+          final rank = int.tryParse(state.uri.queryParameters['rank'] ?? '');
+          return LocationDetailScreen(
+            locationName: name,
+            rank: rank,
+          );
+        },
       ),
       GoRoute(path: AppRoutes.explore, builder: (_, __) => const ExploreScreen()),
-      GoRoute(path: AppRoutes.messages, builder: (_, __) => const MessagesListScreen()),
+      GoRoute(path: AppRoutes.topLocations, builder: (_, __) => const TopLocationsScreen()),
+      GoRoute(path: AppRoutes.topAgents, builder: (_, __) => const TopAgentsScreen()),
+      GoRoute(
+        path: AppRoutes.messages,
+        builder: (_, __) => NotificationsScreen(initialTab: 'messages'),
+      ),
       GoRoute(
         path: '${AppRoutes.chat}/:id',
         builder: (_, state) {
@@ -195,6 +217,7 @@ const Set<String> _publicPaths = {
   AppRoutes.home,
   AppRoutes.search,
   AppRoutes.explore,
+  AppRoutes.topLocations,
   AppRoutes.accountSetupIntent,
   AppRoutes.accountSetupPreferable,
   AppRoutes.accountSetupLocation,

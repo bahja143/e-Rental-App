@@ -95,8 +95,10 @@ class AuthRepository {
   void _storeSessionFromAuthResponse(Map<String, dynamic> response) {
     final tokenMap = response['tokens'];
     String token = '';
+    String? refreshToken;
     if (tokenMap is Map<String, dynamic>) {
       token = '${tokenMap['accessToken'] ?? ''}';
+      refreshToken = '${tokenMap['refreshToken'] ?? ''}'.isEmpty ? null : '${tokenMap['refreshToken']}';
     }
     if (token.isEmpty) return;
     final user = response['user'];
@@ -105,18 +107,21 @@ class AuthRepository {
       final parsed = '${user['id'] ?? ''}';
       userId = parsed.isEmpty ? null : parsed;
     }
-    ApiSession.setSession(token: token, userId: userId);
+    ApiSession.setSession(token: token, refreshToken: refreshToken, userId: userId);
   }
 
   Future<bool> login({
     required String email,
     required String password,
+    bool rememberMe = true,
   }) async {
     try {
-      await _apiClient.postJson('/auth/login', body: {
+      final response = await _apiClient.postJson('/auth/login', body: {
         'email': email,
         'password': password,
+        'rememberMe': rememberMe,
       });
+      _storeSessionFromAuthResponse(response);
       return true;
     } catch (_) {
       return false;
@@ -146,11 +151,13 @@ class AuthRepository {
   Future<bool> verifyOtp({
     required String email,
     required String otp,
+    bool rememberMe = true,
   }) async {
     try {
       final response = await _apiClient.postJson('/auth/verify-otp', body: {
         'email': email,
         'otp': otp,
+        'rememberMe': rememberMe,
       });
       final tokenMap = response['tokens'];
       String token = '';
@@ -296,6 +303,7 @@ class AuthRepository {
       final response = await _apiClient.postJson('/auth/social-login', body: {
         'provider': provider,
         'idToken': idToken,
+        'rememberMe': true,
       });
       _storeSessionFromAuthResponse(response);
       return (ok: true, errorMessage: null);
@@ -353,6 +361,7 @@ class AuthRepository {
         'provider': provider,
         'idToken': firebaseToken,
         'createIfNotExists': false,
+        'rememberMe': true,
       });
       await googleSignIn.signOut();
       await FirebaseAuth.instance.signOut();
@@ -385,6 +394,7 @@ class AuthRepository {
       final response =
           await _apiClient.postJson('/auth/login-with-phone', body: {
         'idToken': idToken,
+        'rememberMe': true,
       });
       _storeSessionFromAuthResponse(response);
       return (ok: true, errorMessage: null);
