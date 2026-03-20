@@ -403,12 +403,8 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
     );
   }
 
-  /// Figma **`28:4657`** `Header` — toolbar row:
-  /// - **Back** (`28:4660`): blur + `rgba(255,255,255,0.8)` — [_listingToolbarGlassButton].
-  /// - **Share** (`28:4659` / `Button / Share`): solid **`#f5f4f8`**, no blur, navy icon.
-  /// - **Favorite** (`28:4658`): active = primary gold + green glow + white heart; inactive = like Share.
+  /// Detail hero toolbar — solid **`#F5F4F8`** fill on all actions; icon colors unchanged per child.
 
-  /// Back only — `backdrop-blur-[6px] bg-[rgba(255,255,255,0.8)]` `rounded-[25px]`.
   Widget _listingToolbarGlassButton({
     required VoidCallback onTap,
     required Widget child,
@@ -420,21 +416,15 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(r),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(r),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(
-              sigmaX: FigmaHantiRiyoTokens.listingDetailBackBlurSigma,
-              sigmaY: FigmaHantiRiyoTokens.listingDetailBackBlurSigma,
-            ),
-            child: Container(
-              width: s,
-              height: s,
-              color: FigmaHantiRiyoTokens.listingDetailBackBlurFill,
-              alignment: Alignment.center,
-              child: child,
-            ),
+        child: Container(
+          width: s,
+          height: s,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: FigmaHantiRiyoTokens.listingDetailShareFill,
+            borderRadius: BorderRadius.circular(r),
           ),
+          child: child,
         ),
       ),
     );
@@ -447,7 +437,6 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
     );
   }
 
-  /// Share — same glass system as back (`28:4659` glyph unchanged).
   Widget _listingToolbarShare() {
     return _listingToolbarGlassButton(
       onTap: () {},
@@ -455,15 +444,29 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
     );
   }
 
-  /// Favorite — same glass as back; filled vs outline shows saved state.
   Widget _listingToolbarFavorite() {
+    final s = FigmaHantiRiyoTokens.listingDetailToolbarSize;
+    final r = FigmaHantiRiyoTokens.listingDetailToolbarRadius;
     final heartSize = FigmaHantiRiyoTokens.listingDetailFavoriteIconSize;
-    return _listingToolbarGlassButton(
-      onTap: _toggleSaved,
-      child: Icon(
-        _isSaved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-        size: heartSize,
-        color: AppColors.textPrimary,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _toggleSaved,
+        borderRadius: BorderRadius.circular(r),
+        child: Container(
+          width: s,
+          height: s,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(r),
+          ),
+          child: Icon(
+            _isSaved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            size: heartSize,
+            color: Colors.white,
+          ),
+        ),
       ),
     );
   }
