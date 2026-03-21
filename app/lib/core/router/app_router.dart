@@ -12,6 +12,8 @@ import '../../features/auth/screens/phone_verification_screen.dart';
 import '../../features/auth/screens/faq_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/home/screens/estate_detail_screen.dart';
+import '../../features/home/screens/listing_reviews_screen.dart';
+import '../../features/home/screens/listing_full_map_screen.dart';
 import '../../features/home/screens/agent_profile_screen.dart';
 import '../../features/home/screens/location_detail_screen.dart';
 import '../../features/home/screens/top_locations_screen.dart';
@@ -129,6 +131,25 @@ GoRouter createAppRouter() {
       GoRoute(path: AppRoutes.home, builder: (_, __) => const HomeScreen()),
       GoRoute(path: AppRoutes.search, builder: (_, __) => const SearchScreen()),
       GoRoute(
+        path: AppRoutes.listingMap,
+        builder: (_, state) {
+          final extra = state.extra;
+          if (extra is ListingMapRouteArgs) {
+            return ListingFullMapScreen(args: extra);
+          }
+          return const ListingFullMapScreen(
+            args: ListingMapRouteArgs(
+              estateId: '',
+              title: 'Map',
+              locationLabel: '',
+              imageUrl: '',
+              latitude: 2.0469,
+              longitude: 45.3182,
+            ),
+          );
+        },
+      ),
+      GoRoute(
         path: AppRoutes.searchResults,
         builder: (_, state) => SearchResultsScreen(
           initialQuery: state.uri.queryParameters['q'],
@@ -145,6 +166,14 @@ GoRouter createAppRouter() {
       ),
       GoRoute(path: AppRoutes.settings, builder: (_, __) => const SettingsScreen()),
       GoRoute(path: AppRoutes.editProfile, builder: (_, __) => const EditProfileScreen()),
+      GoRoute(
+        path: '${AppRoutes.estate}/:id/reviews',
+        builder: (_, state) {
+          final id = state.pathParameters['id'] ?? '1';
+          final title = state.uri.queryParameters['title'];
+          return ListingReviewsScreen(estateId: id, listingTitle: title);
+        },
+      ),
       GoRoute(
         path: '${AppRoutes.estate}/:id',
         builder: (_, state) => EstateDetailScreen(
@@ -224,6 +253,7 @@ const Set<String> _publicPaths = {
   AppRoutes.home,
   AppRoutes.search,
   AppRoutes.searchResults,
+  AppRoutes.listingMap,
   AppRoutes.explore,
   AppRoutes.topLocations,
   AppRoutes.accountSetupIntent,

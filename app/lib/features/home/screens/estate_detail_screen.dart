@@ -13,8 +13,11 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/remote_image.dart';
 import '../data/models/estate_item.dart';
 import '../widgets/listing_detail_map_preview.dart';
+import 'listing_full_map_screen.dart';
 import '../data/repositories/estate_repository.dart';
 import '../widgets/estate_card.dart';
+import '../data/models/listing_review.dart';
+import '../widgets/listing_review_tile.dart';
 
 /// Listing / property detail — Figma **Hanti riyo (Copy)** node `28:4568`.
 class EstateDetailScreen extends StatefulWidget {
@@ -43,11 +46,16 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
   final _repo = EstateRepository();
   late final Future<_EstateDetailData> _detailFuture;
   final PageController _heroPageController = PageController();
+  int _heroPageIndex = 0;
   bool _isSaved = false;
   bool _savingFavorite = false;
 
   /// User toggle for Rent vs Buy (`null` = use API default: prefer rent when both exist).
   bool? _listingTypeRentOverride;
+
+  /// Picked in **Figma `28:4473`** location-distance sheet; drives the "… km from …" row.
+  double _distanceKm = 2.5;
+  String _distanceFromLabel = 'your location';
 
   @override
   void initState() {
@@ -149,7 +157,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
                     const SizedBox(height: 12),
                     _buildLocationAddressBlock(data),
                     const SizedBox(height: 12),
-                    _buildDistanceRow(),
+                    _buildDistanceRow(context, data),
                     const SizedBox(height: 12),
                     _buildPublicFacilityPills(),
                     const SizedBox(height: 12),
@@ -163,34 +171,36 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
                     const SizedBox(height: 28),
                     _buildCostOfLivingSection(),
                     const SizedBox(height: 28),
-                    _buildLatoSectionTitle('Reviews'),
+                    // Figma `28:4577` — **Reviews**: title → summary card → preview rows → **View all** last.
+                    _buildSectionTitle('Reviews'),
                     const SizedBox(height: 12),
                     _buildReviewsSummaryCard(data),
                     const SizedBox(height: 12),
-                    _buildViewAllReviewsButton(),
-                    const SizedBox(height: 16),
                     if (data.reviews.isEmpty)
-                      Text(
-                        'No reviews yet.',
-                        style: GoogleFonts.lato(
-                          fontSize: 14,
-                          color: AppColors.greyBarelyMedium,
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          'No reviews yet.',
+                          style: GoogleFonts.lato(
+                            fontSize: 14,
+                            color: AppColors.greyBarelyMedium,
+                          ),
                         ),
                       )
                     else
                       Column(
                         children: data.reviews
-                            .take(3)
+                            .take(2)
                             .map(
-                              (r) => _ReviewTile(
-                                name: r.name,
-                                rating: r.rating,
-                                text: r.text,
-                                date: r.dateLabel,
+                              (r) => Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: ListingReviewListTile(review: r),
                               ),
                             )
                             .toList(),
                       ),
+                    const SizedBox(height: 12),
+                    _buildViewAllReviewsButton(context, data),
                     const SizedBox(height: 24),
                     _buildSectionTitle('Nearby From this Location'),
                     const SizedBox(height: 12),
@@ -269,108 +279,145 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
     );
   }
 
-  /// Figma `28:4568` — `Detail / Full`: `rounded-[50px]` hero, 50×25 toolbar, vertical gallery, blur pills.
+  /// Figma `28:4568` / `28:4649` — side margins, white **10px** frame, `28:4651` **3** gallery thumbs.
+  (List<String> heroUrls, int originalImageCount) _heroUrlsAndCount(_EstateDetailData data) {
+    final raw = data.imageUrls.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    if (raw.isEmpty && data.imageUrl.trim().isNotEmpty) {
+      raw.add(data.imageUrl.trim());
+    }
+    final n = raw.length;
+    if (n == 0) {
+      return (['', '', ''], 0);
+    }
+    final out = List<String>.from(raw);
+    while (out.length < 3) {
+      out.add(out.first);
+    }
+    return (out, n);
+  }
+
+  /// Figma `28:4568` — `Detail / Full`: hero margins, `28:4649` white frame, PageView + 3-thumb gallery.
   Widget _buildHero(BuildContext context, _EstateDetailData data) {
     final topInset = MediaQuery.paddingOf(context).top;
-    final urls = data.imageUrls;
+    final (heroUrls, originalCount) = _heroUrlsAndCount(data);
     final h = FigmaHantiRiyoTokens.listingDetailHeroHeight;
+    final rOuter = FigmaHantiRiyoTokens.listingDetailHeroRadius;
+    final bw = FigmaHantiRiyoTokens.listingDetailHeroFrameBorder;
+    final rInner = (rOuter - bw).clamp(8.0, rOuter);
 
-    // Toolbar sits outside `ClipRRect` so `28:4658` favorite glow isn’t clipped.
-    return Padding(
-      padding: EdgeInsets.only(top: topInset + 8),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(FigmaHantiRiyoTokens.listingDetailHeroRadius),
-            child: SizedBox(
-              height: h,
-              width: double.infinity,
-              child: Stack(
-                fit: StackFit.expand,
+    Widget heroStack() {
+      return SizedBox(
+        height: h,
+        width: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            PageView.builder(
+              controller: _heroPageController,
+              itemCount: heroUrls.length,
+              onPageChanged: (i) => setState(() => _heroPageIndex = i),
+              itemBuilder: (_, i) => RemoteImage(
+                url: heroUrls[i],
+                fit: BoxFit.cover,
+                errorWidget: Container(
+                  color: AppColors.greySoft1,
+                  child: const Icon(Icons.home_work_outlined, size: 64, color: AppColors.greyBarelyMedium),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: ColoredBox(color: FigmaHantiRiyoTokens.exploreSearchThumbOverlay),
+              ),
+            ),
+            if (originalCount > 0)
+              Positioned(
+                right: 20,
+                top: h * 0.36,
+                child: _buildHeroGalleryColumn(
+                  heroUrls,
+                  originalImageCount: originalCount,
+                  selectedPageIndex: _heroPageIndex,
+                ),
+              ),
+            Positioned(
+              left: 24,
+              right: 24,
+              bottom: 28,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  PageView.builder(
-                    controller: _heroPageController,
-                    itemCount: urls.length,
-                    itemBuilder: (_, i) => RemoteImage(
-                      url: urls[i],
-                      fit: BoxFit.cover,
-                      errorWidget: Container(
-                        color: AppColors.greySoft1,
-                        child: const Icon(Icons.home_work_outlined, size: 64, color: AppColors.greyBarelyMedium),
-                      ),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: ColoredBox(color: FigmaHantiRiyoTokens.exploreSearchThumbOverlay),
-                    ),
-                  ),
-                  if (urls.length > 1)
-                    Positioned(
-                      right: 20,
-                      top: h * 0.36,
-                      child: _buildHeroGalleryColumn(urls),
-                    ),
-                  Positioned(
-                    left: 24,
-                    right: 24,
-                    bottom: 28,
+                  _listingHeroBlurPill(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16.5),
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        _listingHeroBlurPill(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16.5),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '⭐',
-                                style: GoogleFonts.raleway(
-                                  fontSize: 15,
-                                  color: FigmaHantiRiyoTokens.exploreSearchTextTitle,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                data.rating.toStringAsFixed(1),
-                                style: GoogleFonts.montserrat(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                  letterSpacing: 0.42,
-                                ),
-                              ),
-                            ],
+                        Text(
+                          '⭐',
+                          style: GoogleFonts.raleway(
+                            fontSize: 15,
+                            color: FigmaHantiRiyoTokens.exploreSearchTextTitle,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Flexible(
-                          child: _listingHeroBlurPill(
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 17.5),
-                            child: Text(
-                              data.propertyTypeLabel,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.raleway(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.white,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
+                        const SizedBox(width: 8),
+                        Text(
+                          data.rating.toStringAsFixed(1),
+                          style: GoogleFonts.montserrat(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            letterSpacing: 0.42,
                           ),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: _listingHeroBlurPill(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 17.5),
+                      child: Text(
+                        data.propertyTypeLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.raleway(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(24, topInset + 8, 24, 0),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(rOuter),
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(bw),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(rInner),
+                child: heroStack(),
               ),
             ),
           ),
           Positioned(
-            left: 24,
-            right: 24,
+            left: 0,
+            right: 0,
             top: 24,
             child: Row(
               children: [
@@ -403,7 +450,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
     );
   }
 
-  /// Detail hero toolbar — solid **`#F5F4F8`** fill on all actions; icon colors unchanged per child.
+  /// Hero toolbar: **back** = frosted blur ([`listingDetailBackBlurFill`]); **share** = solid `#f5f4f8`.
 
   Widget _listingToolbarGlassButton({
     required VoidCallback onTap,
@@ -430,10 +477,35 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
     );
   }
 
+  /// Figma `28:4660` — **Button / Back - Transparent**: blur + `rgba(255,255,255,0.8)` (not solid `#f5f4f8`).
   Widget _listingToolbarBack(BuildContext context) {
-    return _listingToolbarGlassButton(
-      onTap: () => context.pop(),
-      child: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.textPrimary),
+    final s = FigmaHantiRiyoTokens.listingDetailToolbarSize;
+    final r = FigmaHantiRiyoTokens.listingDetailToolbarRadius;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => context.pop(),
+        borderRadius: BorderRadius.circular(r),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(r),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(
+              sigmaX: FigmaHantiRiyoTokens.listingDetailBackBlurSigma,
+              sigmaY: FigmaHantiRiyoTokens.listingDetailBackBlurSigma,
+            ),
+            child: Container(
+              width: s,
+              height: s,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: FigmaHantiRiyoTokens.listingDetailBackBlurFill,
+                borderRadius: BorderRadius.circular(r),
+              ),
+              child: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.textPrimary),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -444,6 +516,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
     );
   }
 
+  /// Figma `28:4658` — primary circle + optional green glow when favorited.
   Widget _listingToolbarFavorite() {
     final s = FigmaHantiRiyoTokens.listingDetailToolbarSize;
     final r = FigmaHantiRiyoTokens.listingDetailToolbarRadius;
@@ -460,6 +533,16 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
           decoration: BoxDecoration(
             color: AppColors.primary,
             borderRadius: BorderRadius.circular(r),
+            boxShadow: _isSaved
+                ? [
+                    BoxShadow(
+                      color: const Color(0x998BC83F),
+                      blurRadius: 40,
+                      offset: const Offset(0, 11),
+                      spreadRadius: -8,
+                    ),
+                  ]
+                : null,
           ),
           child: Icon(
             _isSaved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
@@ -471,87 +554,99 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
     );
   }
 
-  Widget _buildHeroGalleryColumn(List<String> urls) {
-    final t = FigmaHantiRiyoTokens.listingDetailGalleryThumb;
+  /// Figma `28:4651` — always **3** thumbs; tap switches [`PageView`]; `+N` when more than 3 photos.
+  Widget _buildHeroGalleryColumn(
+    List<String> urls, {
+    required int originalImageCount,
+    required int selectedPageIndex,
+  }) {
+    final thumb = FigmaHantiRiyoTokens.listingDetailGalleryThumb;
     final rad = FigmaHantiRiyoTokens.listingDetailGalleryRadius;
     final bw = FigmaHantiRiyoTokens.listingDetailGalleryBorder;
 
-    void go(int i) {
-      if (i >= 0 && i < urls.length) {
+    void go(int page) {
+      if (page >= 0 && page < urls.length) {
+        setState(() => _heroPageIndex = page);
         _heroPageController.animateToPage(
-          i,
+          page,
           duration: const Duration(milliseconds: 280),
           curve: Curves.easeOut,
         );
       }
     }
 
-    Widget borderedImage(String u, {Color borderColor = Colors.white, VoidCallback? onTap}) {
+    Widget thumbCell({
+      required int pageIndex,
+      required String imageUrl,
+      Color borderColor = Colors.white,
+      bool showPlusOverlay = false,
+      int plusCount = 0,
+    }) {
+      final selected = selectedPageIndex == pageIndex ||
+          (pageIndex == 2 && selectedPageIndex >= 3 && originalImageCount > 3);
       return GestureDetector(
-        onTap: onTap,
+        onTap: () => go(pageIndex),
         child: Container(
-          width: t,
-          height: t,
+          width: thumb,
+          height: thumb,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(rad),
-            border: Border.all(color: borderColor, width: bw),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: RemoteImage(
-            url: u,
-            fit: BoxFit.cover,
-            errorWidget: Container(color: AppColors.primaryBackground),
-          ),
-        ),
-      );
-    }
-
-    final children = <Widget>[];
-    if (urls.length > 1) {
-      children.add(borderedImage(urls[1], onTap: () => go(1)));
-    }
-    if (urls.length > 2) {
-      children.add(const SizedBox(height: 5));
-      children.add(borderedImage(urls[2], onTap: () => go(2)));
-    }
-    if (urls.length > 3) {
-      final showOverlay = urls.length > 4;
-      final plus = urls.length - 3;
-      children.add(const SizedBox(height: 5));
-      children.add(
-        GestureDetector(
-          onTap: () => go(3),
-          child: SizedBox(
-            width: t,
-            height: t,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                borderedImage(urls[3], borderColor: AppColors.greySoft1),
-                if (showOverlay)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(rad),
-                    child: const ColoredBox(color: FigmaHantiRiyoTokens.listingDetailGalleryMoreOverlay),
-                  ),
-                if (showOverlay)
-                  Center(
-                    child: Text(
-                      '+$plus',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.greySoft2,
-                      ),
-                    ),
-                  ),
-              ],
+            border: Border.all(
+              color: selected ? AppColors.primary : borderColor,
+              width: selected ? bw + 0.5 : bw,
             ),
           ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              RemoteImage(
+                url: imageUrl,
+                fit: BoxFit.cover,
+                errorWidget: Container(color: AppColors.primaryBackground),
+              ),
+              if (showPlusOverlay) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(rad),
+                  child: const ColoredBox(color: FigmaHantiRiyoTokens.listingDetailGalleryMoreOverlay),
+                ),
+                Center(
+                  child: Text(
+                    '+$plusCount',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.greySoft2,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       );
     }
 
-    return Column(mainAxisSize: MainAxisSize.min, children: children);
+    final thirdShowsPlus = originalImageCount > 3;
+    final plusN = originalImageCount - 3;
+    final thirdPageIndex = thirdShowsPlus ? 3 : 2;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        thumbCell(pageIndex: 0, imageUrl: urls[0]),
+        const SizedBox(height: 5),
+        thumbCell(pageIndex: 1, imageUrl: urls[1]),
+        const SizedBox(height: 5),
+        thumbCell(
+          pageIndex: thirdPageIndex,
+          imageUrl: urls[2],
+          borderColor: thirdShowsPlus ? AppColors.greySoft1 : Colors.white,
+          showPlusOverlay: thirdShowsPlus,
+          plusCount: plusN,
+        ),
+      ],
+    );
   }
 
   Widget _buildTitlePriceBlock(_EstateDetailData data) {
@@ -605,7 +700,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
   Widget _buildLocationRow(_EstateDetailData data) {
     return Row(
       children: [
-        Icon(Icons.location_on_outlined, size: 14, color: AppColors.textSecondary),
+        Icon(Icons.location_on_outlined, size: 12, color: AppColors.textSecondary),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
@@ -622,12 +717,18 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
   }
 
   Widget _buildRentBuyAvailableRow(_EstateDetailData data) {
-    /// Figma `28:4568` / `28:4632` — selected = gold + **white** label; unselected = `#f5f4f8` + **#252b5c** (no faded double-grey).
+    /// Figma `28:4632` / `28:5539` — Rent selected: gold + **Raleway Bold** white; Buy idle: `#f5f4f8` + **Raleway Medium** `#252b5c`.
     final titleC = FigmaHantiRiyoTokens.exploreSearchTextTitle;
     final rentSelected = _effectiveShowRent(data);
     final buySelected = !rentSelected && data.hasSellOption;
 
-    Widget typePill(String label, {required bool selected, required bool enabled, VoidCallback? onTap}) {
+    Widget typePill(
+      String label, {
+      required bool selected,
+      required bool enabled,
+      VoidCallback? onTap,
+      bool boldWhenSelected = true,
+    }) {
       final child = Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 17.5),
         decoration: BoxDecoration(
@@ -637,10 +738,11 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
         alignment: Alignment.center,
         child: Text(
           label,
-          style: GoogleFonts.lato(
+          style: GoogleFonts.raleway(
             fontSize: 10,
-            fontWeight: FontWeight.w700,
+            fontWeight: selected && boldWhenSelected ? FontWeight.w700 : FontWeight.w500,
             letterSpacing: 0.3,
+            height: 1,
             color: selected
                 ? Colors.white
                 : (enabled ? titleC : AppColors.greyBarelyMedium),
@@ -675,13 +777,14 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
           'Buy',
           selected: buySelected,
           enabled: data.hasSellOption,
+          boldWhenSelected: true,
           onTap: data.hasSellOption ? () => setState(() => _listingTypeRentOverride = false) : null,
         ),
         const Spacer(),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
           decoration: BoxDecoration(
-            color: FigmaHantiRiyoTokens.listingDetailAvailableFill,
+            color: const Color(0x4D8BC83F),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
@@ -697,9 +800,10 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
                 'Available',
                 style: GoogleFonts.raleway(
                   fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: Colors.black,
                   letterSpacing: 0.3,
+                  height: 1,
                 ),
               ),
             ],
@@ -810,45 +914,107 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
     );
   }
 
-  Widget _buildDistanceRow() {
-    return Container(
-      height: 50,
-      decoration: BoxDecoration(
-        color: Colors.white,
+  String _formatDistanceKm(double km) {
+    final s = km.toStringAsFixed(1);
+    return s.endsWith('.0') ? s.substring(0, s.length - 2) : s;
+  }
+
+  void _showLocationDistanceModal(BuildContext context, _EstateDetailData data) {
+    final rootContext = context;
+    final secondSuffix = data.nearby.isNotEmpty
+        ? data.nearby.first.location
+        : 'Petompon, Kota Semarang, Jawa Tengah 50232';
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: const Color(0xAB1F4C6B),
+      builder: (sheetContext) {
+        return _LocationDistanceSheet(
+          primaryLocationLine: data.location,
+          secondaryLocationLine: secondSuffix,
+          onPick: (km, fromSuffix) {
+            Navigator.of(sheetContext).pop();
+            if (!rootContext.mounted) return;
+            setState(() {
+              _distanceKm = km;
+              _distanceFromLabel = fromSuffix;
+            });
+          },
+          onEditTap: () {
+            Navigator.of(sheetContext).pop();
+            if (!rootContext.mounted) return;
+            ScaffoldMessenger.of(rootContext).showSnackBar(
+              const SnackBar(content: Text('Edit location')),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildDistanceRow(BuildContext context, _EstateDetailData data) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: AppColors.greySoft2, width: 1.2),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: Row(
-        children: [
-          Icon(Icons.place_outlined, size: 20, color: AppColors.textSecondary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text.rich(
-              TextSpan(
-                style: GoogleFonts.raleway(fontSize: 12, color: FigmaHantiRiyoTokens.exploreSearchTextList),
-                children: [
-                  TextSpan(
-                    text: '2.5 ',
-                    style: GoogleFonts.montserrat(
-                      fontWeight: FontWeight.w700,
-                      color: FigmaHantiRiyoTokens.exploreSearchTextTitle,
-                    ),
-                  ),
-                  TextSpan(
-                    text: 'km',
-                    style: GoogleFonts.raleway(
-                      fontWeight: FontWeight.w700,
-                      color: FigmaHantiRiyoTokens.exploreSearchTextTitle,
-                    ),
-                  ),
-                  const TextSpan(text: ' from your location'),
-                ],
-              ),
-            ),
+        onTap: () => _showLocationDistanceModal(context, data),
+        child: Container(
+          height: 50,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(25),
+            border: Border.all(color: AppColors.greySoft2, width: 1.2),
           ),
-          const Icon(Icons.keyboard_arrow_down_rounded, size: 22, color: AppColors.textSecondary),
-        ],
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Row(
+            children: [
+              Icon(Icons.place_outlined, size: 20, color: AppColors.textSecondary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    style: GoogleFonts.raleway(
+                      fontSize: 12,
+                      height: 20 / 12,
+                      color: FigmaHantiRiyoTokens.exploreSearchTextList,
+                      letterSpacing: 0.36,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: '${_formatDistanceKm(_distanceKm)} ',
+                        style: GoogleFonts.montserrat(
+                          fontWeight: FontWeight.w700,
+                          color: FigmaHantiRiyoTokens.exploreSearchTextTitle,
+                          letterSpacing: 0.36,
+                        ),
+                      ),
+                      TextSpan(
+                        text: 'km',
+                        style: GoogleFonts.raleway(
+                          fontWeight: FontWeight.w700,
+                          color: FigmaHantiRiyoTokens.exploreSearchTextTitle,
+                          letterSpacing: 0.36,
+                        ),
+                      ),
+                      TextSpan(
+                        text: ' from $_distanceFromLabel',
+                        style: GoogleFonts.raleway(
+                          fontSize: 12,
+                          height: 20 / 12,
+                          color: FigmaHantiRiyoTokens.exploreSearchTextList,
+                          letterSpacing: 0.36,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Icon(Icons.keyboard_arrow_down_rounded, size: 22, color: AppColors.textSecondary),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -887,14 +1053,64 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
     );
   }
 
+  /// Positions for nearby listings when API has no lat/lng (same spread as former placeholder pins).
+  List<ListingMapNearbyPin> _nearbyPinsForFullMap(_EstateDetailData data) {
+    const deltas = <(double, double)>[
+      (0.0055, 0.0065),
+      (-0.004, 0.003),
+      (0.003, -0.006),
+      (-0.0065, -0.002),
+    ];
+    final cLat = data.mapLat;
+    final cLng = data.mapLng;
+    var fallbackIndex = 0;
+    final out = <ListingMapNearbyPin>[];
+    for (final e in data.nearby) {
+      if (e.id == widget.estateId) continue;
+      final double lat;
+      final double lng;
+      if (e.hasCoordinates) {
+        lat = e.lat!;
+        lng = e.lng!;
+      } else {
+        final d = deltas[fallbackIndex % deltas.length];
+        fallbackIndex++;
+        lat = cLat + d.$1;
+        lng = cLng + d.$2;
+      }
+      out.add(ListingMapNearbyPin(
+        id: e.id,
+        imageUrl: e.imageUrl,
+        latitude: lat,
+        longitude: lng,
+      ));
+    }
+    return out;
+  }
+
   /// **Figma `28:4593`** — real map, custom pin ([`createMapPinDescriptor`]), frosted footer.
   Widget _buildMapCard(BuildContext context, _EstateDetailData data) {
     final target = LatLng(data.mapLat, data.mapLng);
+    final locLine = data.location.trim().isNotEmpty
+        ? data.location.trim()
+        : (data.title.trim().isNotEmpty ? data.title.trim() : 'Property location');
     return ListingDetailMapPreview(
       target: target,
       imageUrl: data.imageUrl,
       height: 235,
-      onViewAllTap: () => context.push(AppRoutes.search),
+      onViewAllTap: () => context.push(
+            AppRoutes.listingMap,
+            extra: ListingMapRouteArgs(
+              estateId: widget.estateId,
+              title: data.title,
+              locationLabel: locLine,
+              imageUrl: data.imageUrl,
+              latitude: data.mapLat,
+              longitude: data.mapLng,
+              regionLabel: ListingMapRouteArgs.deriveRegionChip(locLine),
+              nearbyPins: _nearbyPinsForFullMap(data),
+            ),
+          ),
     );
   }
 
@@ -1009,7 +1225,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
               Text(
                 '*From average citizen spend around this location',
                 style: GoogleFonts.raleway(
-                  fontSize: 9,
+                  fontSize: 10,
                   color: FigmaHantiRiyoTokens.exploreSearchTextList,
                   letterSpacing: 0.27,
                 ),
@@ -1024,6 +1240,12 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
   Widget _buildReviewsSummaryCard(_EstateDetailData data) {
     final n = data.reviewCount;
     final fullStars = data.rating.floor().clamp(0, 5);
+    final avatarUrls = data.reviews
+        .map((r) => r.avatarUrl?.trim())
+        .whereType<String>()
+        .where((u) => u.isNotEmpty)
+        .take(3)
+        .toList();
     return Container(
       height: 85,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1073,7 +1295,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
                   Text.rich(
                     TextSpan(
                       style: GoogleFonts.raleway(
-                        fontSize: 9,
+                        fontSize: 10,
                         color: FigmaHantiRiyoTokens.exploreSearchTextList,
                         letterSpacing: 0.27,
                       ),
@@ -1105,7 +1327,20 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
                         border: Border.all(color: Colors.white, width: 2),
                         color: AppColors.greySoft2,
                       ),
-                      child: Icon(Icons.person_rounded, size: 16, color: AppColors.greyBarelyMedium),
+                      clipBehavior: Clip.antiAlias,
+                      child: i < avatarUrls.length
+                          ? RemoteImage(
+                              url: avatarUrls[i],
+                              fit: BoxFit.cover,
+                              width: 30,
+                              height: 30,
+                              errorWidget: Icon(
+                                Icons.person_rounded,
+                                size: 16,
+                                color: AppColors.greyBarelyMedium,
+                              ),
+                            )
+                          : Icon(Icons.person_rounded, size: 16, color: AppColors.greyBarelyMedium),
                     ),
                   ),
               ],
@@ -1116,7 +1351,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
     );
   }
 
-  Widget _buildViewAllReviewsButton() {
+  Widget _buildViewAllReviewsButton(BuildContext context, _EstateDetailData data) {
     return SizedBox(
       height: 50,
       width: double.infinity,
@@ -1124,7 +1359,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
         color: AppColors.greySoft1,
         borderRadius: BorderRadius.circular(15),
         child: InkWell(
-          onTap: () {},
+          onTap: () => context.push(AppRoutes.estateReviews(widget.estateId, title: data.title)),
           borderRadius: BorderRadius.circular(15),
           child: Center(
             child: Text(
@@ -1166,6 +1401,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
               price: e.price,
               rating: e.rating,
               imageUrl: e.imageUrl,
+              category: e.displayCategory,
               onTap: () => context.push(AppRoutes.estateDetail(e.id)),
             ),
           );
@@ -1235,7 +1471,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
                     Text(
                       'Real Estate Agent',
                       style: GoogleFonts.raleway(
-                        fontSize: 9,
+                        fontSize: 10,
                         letterSpacing: 0.27,
                         color: FigmaHantiRiyoTokens.exploreSearchTextList,
                       ),
@@ -1286,85 +1522,205 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
   }
 }
 
-class _ReviewTile extends StatelessWidget {
-  const _ReviewTile({required this.name, required this.rating, required this.text, required this.date});
+/// Figma **`28:4473`** — `Detail / Location Distance` bottom sheet (`Modal` `28:4524`).
+class _LocationDistanceSheet extends StatelessWidget {
+  const _LocationDistanceSheet({
+    required this.primaryLocationLine,
+    required this.secondaryLocationLine,
+    required this.onPick,
+    required this.onEditTap,
+  });
 
-  final String name;
-  final int rating;
-  final String text;
-  final String date;
+  final String primaryLocationLine;
+  final String secondaryLocationLine;
+  final void Function(double km, String fromSuffix) onPick;
+  final VoidCallback onEditTap;
+
+  static const Color _pinOrange = Color(0xFFFA712D);
 
   @override
   Widget build(BuildContext context) {
-    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final titleC = FigmaHantiRiyoTokens.exploreSearchTextTitle;
+    final listC = FigmaHantiRiyoTokens.exploreSearchTextList;
+    final radiusTop = FigmaHantiRiyoTokens.listingDetailHeroRadius;
+
+    Widget distanceCard(double km, String fromSuffix) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(25),
+          onTap: () => onPick(km, fromSuffix),
+          child: Container(
+            padding: const EdgeInsets.all(15),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(25),
+              border: Border.all(color: AppColors.greySoft2, width: 1.2),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.greySoft2,
+                    borderRadius: BorderRadius.circular(25),
+                    border: Border.all(color: AppColors.greySoft2, width: 1.2),
+                  ),
+                  child: Icon(Icons.location_on_rounded, size: 20, color: _pinOrange),
+                ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      style: GoogleFonts.raleway(
+                        fontSize: 12,
+                        height: 20 / 12,
+                        color: listC,
+                        letterSpacing: 0.36,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: _fmtKm(km),
+                          style: GoogleFonts.montserrat(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                            height: 20 / 12,
+                            color: titleC,
+                            letterSpacing: 0.36,
+                          ),
+                        ),
+                        TextSpan(
+                          text: ' km',
+                          style: GoogleFonts.raleway(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                            height: 20 / 12,
+                            color: titleC,
+                            letterSpacing: 0.36,
+                          ),
+                        ),
+                        TextSpan(text: ' from $fromSuffix'),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final h = MediaQuery.sizeOf(context).height;
+    return SizedBox(
+      height: h,
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: AppColors.primary.withValues(alpha: 0.22),
-                child: Text(
-                  initial,
-                  style: GoogleFonts.raleway(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primaryDark,
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.of(context).pop(),
+              child: const SizedBox.expand(),
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(radiusTop)),
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Center(
+                            child: Container(
+                              width: 60,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFD1D5DB),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 36),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Location Distance',
+                                  style: GoogleFonts.lato(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: titleC,
+                                    letterSpacing: 0.54,
+                                  ),
+                                ),
+                              ),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: BackdropFilter(
+                                  filter: ImageFilter.blur(
+                                    sigmaX: FigmaHantiRiyoTokens.listingDetailHeroPillBlurSigma,
+                                    sigmaY: FigmaHantiRiyoTokens.listingDetailHeroPillBlurSigma,
+                                  ),
+                                  child: Material(
+                                    color: AppColors.primary,
+                                    child: InkWell(
+                                      onTap: onEditTap,
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 19),
+                                        child: Text(
+                                          'Edit',
+                                          style: GoogleFonts.raleway(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.white,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 15),
+                          distanceCard(2.5, primaryLocationLine),
+                          const SizedBox(height: 15),
+                          distanceCard(18.2, secondaryLocationLine),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: GoogleFonts.raleway(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: FigmaHantiRiyoTokens.exploreSearchTextTitle,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: List.generate(
-                        5,
-                        (i) => Padding(
-                          padding: const EdgeInsets.only(right: 2),
-                          child: Icon(
-                            Icons.star_rounded,
-                            size: 14,
-                            color: i < rating ? AppColors.primary : AppColors.greyBarelyMedium,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                date,
-                style: GoogleFonts.lato(fontSize: 12, color: AppColors.greyBarelyMedium),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            text,
-            style: GoogleFonts.lato(
-              fontSize: 14,
-              height: 1.5,
-              color: FigmaHantiRiyoTokens.exploreSearchTextList,
             ),
           ),
         ],
       ),
     );
+  }
+
+  static String _fmtKm(double km) {
+    final s = km.toStringAsFixed(1);
+    return s.endsWith('.0') ? s.substring(0, s.length - 2) : s;
   }
 }
 
@@ -1405,6 +1761,10 @@ class _EstateDetailData {
   double get mapLng => longitude ?? _fallbackMapLng;
 
   factory _EstateDetailData.fallback(EstateDetailScreen widget) {
+    final mockReviews = ListingReview.mockListForListing(widget.estateId);
+    final avgRating = mockReviews.isEmpty
+        ? 4.8
+        : mockReviews.map((e) => e.rating.toDouble()).reduce((a, b) => a + b) / mockReviews.length;
     return _EstateDetailData(
       title: widget.title,
       location: widget.location,
@@ -1418,14 +1778,14 @@ class _EstateDetailData {
       isForSale: true,
       bedrooms: 2,
       bathrooms: 1,
-      reviewCount: 112,
+      reviewCount: mockReviews.length,
       description: widget.description ??
           'Property Overview\nOwnership Type: freehold / leasehold\nLorem ipsum dolor sit amet, consectetur adipiscing elit.',
       facilities: const ['Parking lot', 'Pet Friendly', 'Garden', 'Gym', 'Park', 'Home theatre'],
       agentName: 'Anderson',
       agentAvatarUrl: '',
-      rating: 4.9,
-      reviews: const [],
+      rating: avgRating,
+      reviews: mockReviews,
       nearby: const [],
       latitude: null,
       longitude: null,
@@ -1498,7 +1858,7 @@ class _EstateDetailData {
       }
     }
 
-    final reviewItems = reviews.map(_ReviewItem.fromJson).toList();
+    final reviewItems = reviews.map(ListingReview.fromJson).toList();
     final avgRating = reviewItems.isEmpty
         ? 4.8
         : reviewItems.map((e) => e.rating.toDouble()).reduce((a, b) => a + b) / reviewItems.length;
@@ -1557,7 +1917,7 @@ class _EstateDetailData {
   final String agentName;
   final String agentAvatarUrl;
   final double rating;
-  final List<_ReviewItem> reviews;
+  final List<ListingReview> reviews;
   final List<EstateItem> nearby;
   final double? latitude;
   final double? longitude;
@@ -1584,43 +1944,3 @@ class _EstateDetailData {
   }
 }
 
-class _ReviewItem {
-  const _ReviewItem({
-    required this.name,
-    required this.rating,
-    required this.text,
-    required this.dateLabel,
-  });
-
-  factory _ReviewItem.fromJson(Map<String, dynamic> json) {
-    final user = json['user'];
-    final userMap = user is Map<String, dynamic> ? user : const <String, dynamic>{};
-    final createdAt = DateTime.tryParse('${json['createdAt'] ?? ''}');
-    return _ReviewItem(
-      name: '${userMap['name'] ?? 'User'}',
-      rating: _toInt(json['rating']),
-      text: '${json['comment'] ?? ''}',
-      dateLabel: _dateLabel(createdAt),
-    );
-  }
-
-  final String name;
-  final int rating;
-  final String text;
-  final String dateLabel;
-
-  static int _toInt(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse('$value') ?? 0;
-  }
-
-  static String _dateLabel(DateTime? date) {
-    if (date == null) return '';
-    final diff = DateTime.now().difference(date);
-    if (diff.inDays >= 1) return '${diff.inDays} day${diff.inDays == 1 ? '' : 's'} ago';
-    if (diff.inHours >= 1) return '${diff.inHours} hour${diff.inHours == 1 ? '' : 's'} ago';
-    if (diff.inMinutes >= 1) return '${diff.inMinutes} min ago';
-    return 'Just now';
-  }
-}

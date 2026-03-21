@@ -1,6 +1,7 @@
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_session.dart';
 import '../models/estate_item.dart';
+import '../models/listing_review.dart';
 import '../models/top_agent_item.dart';
 import '../models/top_location_item.dart';
 
@@ -269,16 +270,27 @@ class EstateRepository {
     return null;
   }
 
+  /// Listing row for screens like **Figma `28:4414`** reviews header card.
+  Future<EstateItem?> getEstateItemById(String estateId) async {
+    final m = await getEstateById(estateId);
+    if (m == null) return null;
+    try {
+      return _toEstateItem(m);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getListingReviews(String estateId) async {
     try {
       final response = await _apiClient.getJsonList(
         '/listing-reviews',
         query: {'listing_id': estateId, 'limit': 20},
       );
-      return response.whereType<Map<String, dynamic>>().toList();
-    } catch (_) {
-      return const [];
-    }
+      final list = response.whereType<Map<String, dynamic>>().toList();
+      if (list.isNotEmpty) return list;
+    } catch (_) {}
+    return ListingReview.mockJsonList(estateId);
   }
 
   Future<List<EstateItem>> getNearbyFromEstate(String estateId) async {
@@ -332,8 +344,12 @@ class EstateRepository {
       }
     }
 
-    final lat = json['lat'] != null ? _toDouble(json['lat']) : null;
-    final lng = json['lng'] != null ? _toDouble(json['lng']) : null;
+    final lat = json['lat'] != null
+        ? _toDouble(json['lat'])
+        : (json['latitude'] != null ? _toDouble(json['latitude']) : null);
+    final lng = json['lng'] != null
+        ? _toDouble(json['lng'])
+        : (json['longitude'] != null ? _toDouble(json['longitude']) : null);
 
     return EstateItem(
       id: '${json['id'] ?? ''}',

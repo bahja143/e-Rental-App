@@ -14,6 +14,8 @@ class AppRoutes {
   static const search = '/search';
   /// Figma `24:3566` / `24:3583` — opened from home search (list/grid results).
   static const searchResults = '/search-results';
+  /// Figma `28:4432` — full-screen map for a listing (`ListingFullMapScreen`).
+  static const listingMap = '/listing-map';
   static const saved = '/saved';
   static const profile = '/profile';
   static const notifications = '/notifications';
@@ -41,6 +43,13 @@ class AppRoutes {
   static const chat = '/chat';
 
   static String estateDetail(String id) => '$estate/$id';
+
+  /// Figma `28:4414` — all reviews for a listing.
+  static String estateReviews(String id, {String? title}) {
+    final t = title?.trim() ?? '';
+    if (t.isEmpty) return '$estate/$id/reviews';
+    return '$estate/$id/reviews?title=${Uri.encodeComponent(t)}';
+  }
   static String agentProfile(String id, {int? rank}) {
     if (rank != null) return '$agent/$id?rank=$rank';
     return '$agent/$id';

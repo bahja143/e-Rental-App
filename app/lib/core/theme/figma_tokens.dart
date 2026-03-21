@@ -58,6 +58,9 @@ abstract final class FigmaHantiRiyoTokens {
   /// Hero / property image corner radius (slightly softer than Figma 50 for on-device feel)
   static const double listingDetailHeroRadius = 40;
 
+  /// Node `28:4649` — white frame around hero photo (`border-10 border-white`).
+  static const double listingDetailHeroFrameBorder = 10;
+
   /// Header actions: `Button / Back`, `Button / Share`, favorite — `size-[50px]`, `rounded-[25px]`
   static const double listingDetailToolbarSize = 50;
   static const double listingDetailToolbarRadius = 25;

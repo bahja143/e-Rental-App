@@ -1,8 +1,14 @@
 import 'package:flutter/painting.dart';
 
-/// Ensures scaled text never renders below [minLogicalPixels] (Figma / design minimum 10px).
+import 'app_theme.dart';
+
+/// Ensures scaled text never renders below [minLogicalPixels] (logical px).
+/// Use [AppTheme.minFontSize] from [MaterialApp] builder so all [Text] respects the floor.
 class MinLogicalFontSizeScaler extends TextScaler {
-  MinLogicalFontSizeScaler(this._parent, {this.minLogicalPixels = 10});
+  MinLogicalFontSizeScaler(
+    this._parent, {
+    double? minLogicalPixels,
+  }) : minLogicalPixels = minLogicalPixels ?? AppTheme.minFontSize;
 
   final TextScaler _parent;
   final double minLogicalPixels;

@@ -9,6 +9,10 @@ The search screen uses Google Maps with custom location pins (Figma 21-3695 desi
 3. Enable these APIs:
    - **Maps SDK for Android**
    - **Maps SDK for iOS**
+   - **Geocoding API** (for address search & reverse geocode on **Listing → View on map** when choosing a location)
+   - **Directions API** (for **drive time & road distance** on the bottom “Location detail” card on **View on map**)
+
+The app reads that **same key** from native config for Geocoding HTTP calls (no need for `--dart-define` unless you want to override): Android uses `google-maps-api-key.txt` / `local.properties` → manifest; iOS uses `GoogleMapsKey.xcconfig` → `Info.plist`.
 4. Go to **Credentials** → **Create credentials** → **API key**
 5. Copy your API key
 

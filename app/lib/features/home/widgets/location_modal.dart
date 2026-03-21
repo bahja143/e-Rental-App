@@ -8,30 +8,39 @@ import '../data/models/top_location_item.dart';
 class LocationModal extends StatefulWidget {
   const LocationModal({
     super.key,
-    required this.onSelect,
+    this.onSelect,
+    this.onSelectFuture,
     this.topLocations = const [],
     this.initialLocation,
-  });
+  }) : assert(
+          onSelect != null || onSelectFuture != null,
+          'Provide onSelect or onSelectFuture',
+        );
 
-  final void Function(String) onSelect;
+  /// Sync callback (e.g. home header). Sheet closes after this returns.
+  final void Function(String)? onSelect;
+
+  /// Async callback (e.g. map geocoding). Awaited before the sheet closes.
+  final Future<void> Function(String)? onSelectFuture;
+
   final List<TopLocationItem> topLocations;
   final String? initialLocation;
 
   static Future<void> show(
     BuildContext context, {
     void Function(String)? onSelect,
+    Future<void> Function(String)? onSelectFuture,
     List<TopLocationItem> topLocations = const [],
     String? initialLocation,
   }) {
-    return showModalBottomSheet(
+    assert(onSelect != null || onSelectFuture != null);
+    return showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (ctx) => LocationModal(
-        onSelect: (loc) {
-          onSelect?.call(loc);
-          Navigator.pop(ctx);
-        },
+        onSelect: onSelect,
+        onSelectFuture: onSelectFuture,
         topLocations: topLocations,
         initialLocation: initialLocation,
       ),
@@ -44,6 +53,7 @@ class LocationModal extends StatefulWidget {
 
 class _LocationModalState extends State<LocationModal> {
   late String? _selectedLocation;
+  bool _busy = false;
 
   @override
   void initState() {
@@ -71,18 +81,16 @@ class _LocationModalState extends State<LocationModal> {
   @override
   Widget build(BuildContext context) {
     final items = _displayItems;
+    final sheetH = MediaQuery.sizeOf(context).height * 0.72;
 
     return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.7,
-      ),
+      height: sheetH,
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(50)),
       ),
       child: SafeArea(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 27),
@@ -110,7 +118,7 @@ class _LocationModalState extends State<LocationModal> {
               ),
             ),
             const SizedBox(height: 20),
-            Flexible(
+            Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
@@ -136,13 +144,28 @@ class _LocationModalState extends State<LocationModal> {
                 height: 63,
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    if (_selectedLocation != null) {
-                      widget.onSelect(_selectedLocation!);
-                    } else {
-                      Navigator.pop(context);
-                    }
-                  },
+                  onPressed: _busy
+                      ? null
+                      : () async {
+                          if (_selectedLocation == null) {
+                            Navigator.pop(context);
+                            return;
+                          }
+                          final loc = _selectedLocation!;
+                          setState(() => _busy = true);
+                          try {
+                            if (widget.onSelectFuture != null) {
+                              await widget.onSelectFuture!(loc);
+                            } else {
+                              widget.onSelect!(loc);
+                            }
+                          } finally {
+                            if (context.mounted) {
+                              setState(() => _busy = false);
+                              Navigator.pop(context);
+                            }
+                          }
+                        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
@@ -151,14 +174,23 @@ class _LocationModalState extends State<LocationModal> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: Text(
-                    'Choose Location',
-                    style: GoogleFonts.lato(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.48,
-                    ),
-                  ),
+                  child: _busy
+                      ? const SizedBox(
+                          width: 26,
+                          height: 26,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          'Choose Location',
+                          style: GoogleFonts.lato(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.48,
+                          ),
+                        ),
                 ),
               ),
             ),

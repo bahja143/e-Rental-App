@@ -6,12 +6,13 @@ class ApiConfig {
   /// Override at build: flutter run --dart-define=API_BASE_URL=http://YOUR_IP:PORT
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://255.255.255.0:3000/api',
+    defaultValue: 'http://127.0.0.1:3000/api',
   );
 
-  /// Google Maps API key. Get from https://console.cloud.google.com/
-  /// Enable: Maps SDK for Android, Maps SDK for iOS.
-  /// Run: flutter run --dart-define=GOOGLE_MAPS_API_KEY=YOUR_KEY
+  /// Optional override for Google Maps / Geocoding REST calls.
+  /// If empty, [MapsApiKeyProvider] reads the same key as the native Maps SDK
+  /// (Android manifest / iOS Info.plist). You can still set:
+  /// `flutter run --dart-define=GOOGLE_MAPS_API_KEY=YOUR_KEY`
   static const String googleMapsApiKey = String.fromEnvironment(
     'GOOGLE_MAPS_API_KEY',
     defaultValue: '',

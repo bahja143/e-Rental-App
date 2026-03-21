@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/figma_tokens.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../shared/widgets/remote_image.dart';
 
@@ -264,7 +265,19 @@ class EstateCard extends StatelessWidget {
     return GestureDetector(onTap: onTap, child: card);
   }
 
+  /// Figma `28:4571` **Estates Card / Vertical** — category chip emoji in blurred `#3F467C` square.
+  static String _verticalCategoryEmoji(String? c) {
+    if (c == null || c.isEmpty) return '🏢';
+    final t = c.toLowerCase();
+    if (t.contains('villa')) return '🏡';
+    if (t.contains('house') || t.contains('home')) return '🏠';
+    return '🏢';
+  }
+
   Widget _buildVertical(BuildContext context) {
+    /// Price / category glass — `rgba(63,70,124,0.69)` (`28:4571` Item / Price).
+    const priceGlass = Color(0xB03F467C);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -287,6 +300,35 @@ class EstateCard extends StatelessWidget {
                     children: [
                       Positioned.fill(child: _buildImage()),
                       Positioned(
+                        left: 8,
+                        bottom: 8,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+                            child: Container(
+                              width: 25,
+                              height: 25,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: priceGlass,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                _verticalCategoryEmoji(category),
+                                style: GoogleFonts.raleway(
+                                  fontSize: 11,
+                                  height: 1,
+                                  color: FigmaHantiRiyoTokens.exploreSearchTextTitle,
+                                  letterSpacing: 0.33,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
                         top: 8,
                         right: 8,
                         child: GestureDetector(
@@ -296,13 +338,13 @@ class EstateCard extends StatelessWidget {
                             width: 25,
                             height: 25,
                             decoration: const BoxDecoration(
-                              color: AppColors.primary,
+                              color: Colors.white,
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
-                              isSaved ? Icons.favorite : Icons.favorite_border,
+                              isSaved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                               size: 14,
-                              color: Colors.white,
+                              color: AppColors.primary,
                             ),
                           ),
                         ),
@@ -317,7 +359,7 @@ class EstateCard extends StatelessWidget {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                               decoration: BoxDecoration(
-                                color: AppColors.categoryActive.withValues(alpha: 0.69),
+                                color: priceGlass,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: RichText(

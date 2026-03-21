@@ -9,6 +9,7 @@ import '../../../shared/widgets/bottom_nav_bar.dart';
 import '../../../shared/widgets/remote_image.dart';
 import '../../profile/data/models/profile_user.dart';
 import '../../profile/data/repositories/profile_repository.dart';
+import '../../profile/utils/profile_avatar_letter.dart';
 import '../data/models/estate_item.dart';
 import '../data/models/top_agent_item.dart';
 import '../data/models/top_location_item.dart';
@@ -391,6 +392,72 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _homeProfileAvatarPlaceholder(String letter) {
+    return SizedBox(
+      width: 44,
+      height: 44,
+      child: ClipOval(
+        child: Container(
+          color: AppColors.greySoft2,
+          alignment: Alignment.center,
+          child: letter.isNotEmpty
+              ? Center(
+                  child: Text(
+                    letter,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.lato(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      height: 1.0,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                )
+              : Icon(
+                  Icons.person_rounded,
+                  size: 24,
+                  color: AppColors.greyBarelyMedium,
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHomeProfileAvatar(_HomeData data) {
+    final url = data.avatarUrl?.trim();
+    final hasImage = url != null && url.isNotEmpty;
+    final letter = profileAvatarLetterFromName(data.userName);
+
+    if (!hasImage) {
+      return _homeProfileAvatarPlaceholder(letter);
+    }
+
+    return SizedBox(
+      width: 44,
+      height: 44,
+      child: ClipOval(
+        child: RemoteImage(
+          url: url,
+          fit: BoxFit.cover,
+          placeholder: Container(
+            color: AppColors.greySoft2,
+            child: Center(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primary.withOpacity(0.5),
+                ),
+              ),
+            ),
+          ),
+          errorWidget: _homeProfileAvatarPlaceholder(letter),
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeader(BuildContext context, _HomeData data) {
     return Row(
       children: [
@@ -437,18 +504,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _IconButton(
           icon: Icons.person,
           onTap: () => context.go(AppRoutes.profile),
-          child: SizedBox(
-            width: 44,
-            height: 44,
-            child: ClipOval(
-              child: RemoteImage(
-                url: data.avatarUrl ??
-                    'https://www.figma.com/api/mcp/asset/b8e3e9f1-dc5f-4db6-ba68-7746550ef637',
-                fit: BoxFit.cover,
-                errorWidget: Container(color: AppColors.greySoft1),
-              ),
-            ),
-          ),
+          child: _buildHomeProfileAvatar(data),
         ),
       ],
     );

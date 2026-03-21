@@ -115,7 +115,7 @@ class _ListingDetailMapPreviewState extends State<ListingDetailMapPreview> {
               bottom: 0,
               height: 50,
               child: Material(
-                color: Colors.transparent,
+                color: AppColors.categoryActive.withOpacity(0.5),
                 child: InkWell(
                   onTap: widget.onViewAllTap,
                   child: ClipRect(
@@ -132,7 +132,7 @@ class _ListingDetailMapPreviewState extends State<ListingDetailMapPreview> {
                             style: GoogleFonts.raleway(
                               fontSize: 12,
                               height: 20 / 12,
-                              color: FigmaHantiRiyoTokens.exploreSearchTextTitle,
+                              color: AppColors.categoryActive,
                               letterSpacing: 0.36,
                             ),
                           ),
