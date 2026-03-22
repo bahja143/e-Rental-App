@@ -12,7 +12,9 @@ import '../../home/data/models/listing_review.dart';
 import '../../home/data/repositories/estate_repository.dart';
 import '../data/models/profile_user.dart';
 import '../data/repositories/profile_repository.dart';
+import '../utils/listing_performance_data.dart';
 import '../utils/profile_avatar_letter.dart';
+import '../widgets/listing_performance_sheet.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -207,11 +209,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       itemBuilder: (context, index) {
                         final item = visibleListings[index];
+                        final insightsCount = 11 + (index % 7);
                         return _ProfileListingCard(
                           item: item,
-                          insightsCount: 11 + (index % 7),
+                          insightsCount: insightsCount,
                           onOpen: () => context.push(AppRoutes.estateDetail(item.id)),
-                          onEdit: () => context.push(AppRoutes.addEstate),
+                          onEdit: () => context.push(AppRoutes.editEstateRoute(item.id)),
+                          onAnalyticsTap: () => _showListingPerformanceSheet(item, insightsCount),
                         );
                       },
                     ),
@@ -244,6 +248,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (!mounted) return;
     setState(() => _signingOut = false);
     context.go(AppRoutes.welcome);
+  }
+
+  Future<void> _showListingPerformanceSheet(EstateItem item, int insightsCount) async {
+    final data = buildListingPerformanceData(item, insightsCount: insightsCount);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      barrierColor: const Color(0xAA1F4C6B),
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return FractionallySizedBox(
+          heightFactor: 0.93,
+          child: ListingPerformanceSheet(data: data),
+        );
+      },
+    );
   }
 }
 
@@ -599,12 +620,14 @@ class _ProfileListingCard extends StatelessWidget {
     required this.insightsCount,
     required this.onOpen,
     required this.onEdit,
+    required this.onAnalyticsTap,
   });
 
   final EstateItem item;
   final int insightsCount;
   final VoidCallback onOpen;
   final VoidCallback onEdit;
+  final VoidCallback onAnalyticsTap;
 
   @override
   Widget build(BuildContext context) {
@@ -654,27 +677,34 @@ class _ProfileListingCard extends StatelessWidget {
                       Positioned(
                         bottom: 39,
                         right: 4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xCC3F467C),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: onAnalyticsTap,
                             borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.bar_chart_rounded, size: 16, color: Colors.white),
-                              const SizedBox(width: 10),
-                              Text(
-                                '$insightsCount',
-                                style: GoogleFonts.lato(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.white,
-                                  letterSpacing: 0.36,
-                                ),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xCC3F467C),
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                            ],
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.bar_chart_rounded, size: 16, color: Colors.white),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    '$insightsCount',
+                                    style: GoogleFonts.lato(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.white,
+                                      letterSpacing: 0.36,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),

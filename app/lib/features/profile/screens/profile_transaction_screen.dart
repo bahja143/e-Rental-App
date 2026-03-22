@@ -169,7 +169,7 @@ class _ProfileTransactionScreenState extends State<ProfileTransactionScreen> {
                   _TransactionMenuItem(
                     icon: Icons.swap_horiz_rounded,
                     title: 'Transaction History',
-                    onTap: () => context.push(AppRoutes.transactionSummary),
+                    onTap: () => context.push(AppRoutes.transactionHistory),
                   ),
                   const SizedBox(height: 25),
                   _TransactionMenuItem(
@@ -181,7 +181,7 @@ class _ProfileTransactionScreenState extends State<ProfileTransactionScreen> {
                   _TransactionMenuItem(
                     icon: Icons.show_chart_rounded,
                     title: 'Performance Report',
-                    onTap: () => _showPending('Performance report'),
+                    onTap: () => context.push(AppRoutes.performanceReport),
                   ),
                 ],
               ),

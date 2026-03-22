@@ -23,6 +23,7 @@ import '../../features/profile/screens/profile_screen.dart';
 import '../../features/profile/screens/edit_profile_screen.dart';
 import '../../features/profile/screens/profile_transaction_screen.dart';
 import '../../features/profile/screens/profile_all_reviews_screen.dart';
+import '../../features/profile/screens/performance_report_screen.dart';
 import '../../features/account_setup/screens/user_setup_screen.dart';
 import '../../features/account_setup/screens/location_setup_screen.dart';
 import '../../features/account_setup/screens/intent_setup_screen.dart';
@@ -37,6 +38,9 @@ import '../../features/messages/screens/chat_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
 import '../../features/transaction/screens/transaction_summary_screen.dart';
 import '../../features/transaction/screens/booking_success_screen.dart';
+import '../../features/transaction/screens/transaction_history_screen.dart';
+import '../../features/transaction/screens/transaction_detail_screen.dart';
+import '../../features/transaction/screens/submit_review_screen.dart';
 import '../../features/add_estate/screens/add_estate_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -171,6 +175,12 @@ GoRouter createAppRouter() {
       GoRoute(path: AppRoutes.profileTransaction, builder: (_, __) => const ProfileTransactionScreen()),
       GoRoute(path: AppRoutes.profileReviews, builder: (_, __) => const ProfileAllReviewsScreen()),
       GoRoute(
+        path: AppRoutes.performanceReport,
+        builder: (_, state) => PerformanceReportScreen(
+          estateId: state.uri.queryParameters['estateId'],
+        ),
+      ),
+      GoRoute(
         path: '${AppRoutes.estate}/:id/reviews',
         builder: (_, state) {
           final id = state.pathParameters['id'] ?? '1';
@@ -233,7 +243,26 @@ GoRouter createAppRouter() {
         ),
       ),
       GoRoute(path: AppRoutes.transactionSuccess, builder: (_, __) => const BookingSuccessScreen()),
+      GoRoute(path: AppRoutes.transactionHistory, builder: (_, __) => const TransactionHistoryScreen()),
+      GoRoute(
+        path: '${AppRoutes.transactionDetail}/:id',
+        builder: (_, state) => TransactionDetailScreen(
+          transactionId: state.pathParameters['id'] ?? '1',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.submitReview,
+        builder: (_, state) => SubmitReviewScreen(
+          listingId: state.uri.queryParameters['listingId'] ?? '1',
+        ),
+      ),
       GoRoute(path: AppRoutes.addEstate, builder: (_, __) => const AddEstateScreen()),
+      GoRoute(
+        path: '${AppRoutes.editEstate}/:id',
+        builder: (_, state) => AddEstateScreen(
+          estateId: state.pathParameters['id'],
+        ),
+      ),
       GoRoute(path: AppRoutes.accountSetupUser, builder: (_, __) => const UserSetupScreen()),
       GoRoute(path: AppRoutes.accountSetupLocation, builder: (_, __) => const LocationSetupScreen()),
       GoRoute(path: AppRoutes.accountSetupIntent, builder: (_, __) => const IntentSetupScreen()),

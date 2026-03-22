@@ -23,11 +23,13 @@ class AppRoutes {
   static const editProfile = '/edit-profile';
   static const profileTransaction = '/profile-transaction';
   static const profileReviews = '/profile-reviews';
+  static const performanceReport = '/performance-report';
   static const explore = '/explore';
   static const topLocations = '/top-locations';
   static const topAgents = '/top-agents';
   static const messages = '/messages';
   static const addEstate = '/add-estate';
+  static const editEstate = '/edit-estate';
 
   static const accountSetupUser = '/account-setup/user';
   static const accountSetupLocation = '/account-setup/location';
@@ -38,6 +40,9 @@ class AppRoutes {
 
   static const transactionSummary = '/transaction/summary';
   static const transactionSuccess = '/transaction/success';
+  static const transactionHistory = '/transaction/history';
+  static const transactionDetail = '/transaction/detail';
+  static const submitReview = '/transaction/review';
 
   static const estate = '/estate';
   static const agent = '/agent';
@@ -65,6 +70,10 @@ class AppRoutes {
     return '$chat/$id?name=${Uri.encodeComponent(name)}';
   }
   static String transactionSummaryForEstate(String estateId) => '$transactionSummary?estateId=$estateId';
+  static String transactionDetailRoute(String transactionId) => '$transactionDetail/$transactionId';
+  static String submitReviewRoute(String listingId) => '$submitReview?listingId=$listingId';
+  static String performanceReportForEstate(String estateId) => '$performanceReport?estateId=$estateId';
+  static String editEstateRoute(String estateId) => '$editEstate/$estateId';
   static String otpForEmail(String email) => '$otp?email=${Uri.encodeComponent(email)}';
   static String phoneVerificationForLogin(String phone) =>
       '$phoneVerification?phone=${Uri.encodeComponent(phone)}&mode=login';
