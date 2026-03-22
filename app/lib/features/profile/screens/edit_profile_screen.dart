@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_button.dart';
-import '../../../shared/widgets/app_text_field.dart';
+import '../../../shared/widgets/remote_image.dart';
 import '../data/models/profile_user.dart';
 import '../data/repositories/profile_repository.dart';
+import '../utils/profile_avatar_letter.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -17,8 +19,9 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _phoneController = TextEditingController(text: '+252 61 123 4567');
+  final _phoneController = TextEditingController();
   late final Future<ProfileUser> _profileFuture;
+  String _avatarUrl = '';
   bool _saving = false;
 
   @override
@@ -29,6 +32,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (!mounted) return;
       _nameController.text = profile.name;
       _emailController.text = profile.email;
+      _phoneController.text = profile.phone?.trim().isNotEmpty == true ? profile.phone!.trim() : '+252 61 123 4567';
+      _avatarUrl = profile.avatarUrl?.trim() ?? '';
+      setState(() {});
     });
   }
 
@@ -67,83 +73,256 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
+  void _showSocialAction(String label) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$label is not connected yet.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Edit Profile'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new),
-          onPressed: () => context.pop(),
-        ),
-      ),
+      backgroundColor: Colors.white,
       body: FutureBuilder<ProfileUser>(
         future: _profileFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting && _nameController.text.isEmpty) {
             return const Center(child: CircularProgressIndicator(color: AppColors.primary));
           }
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                Center(
-                  child: Stack(
+          final letter = profileAvatarLetterFromName(_nameController.text);
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: 50,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Center(
+                          child: Text(
+                            'Edit Profile',
+                            style: GoogleFonts.lato(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                              letterSpacing: 0.54,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => context.pop(),
+                              borderRadius: BorderRadius.circular(25),
+                              child: Container(
+                                width: 50,
+                                height: 50,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.greySoft1,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_back_ios_new_rounded,
+                                  size: 18,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(50),
+                    child: SizedBox(
+                      width: 100,
+                      height: 100,
+                      child: _avatarUrl.isNotEmpty
+                          ? RemoteImage(
+                              url: _avatarUrl,
+                              fit: BoxFit.cover,
+                              errorWidget: _EditAvatarFallback(letter: letter),
+                            )
+                          : _EditAvatarFallback(letter: letter),
+                    ),
+                  ),
+                  const SizedBox(height: 31),
+                  _EditProfileField(
+                    controller: _nameController,
+                    icon: Icons.person_outline_rounded,
+                  ),
+                  const SizedBox(height: 15),
+                  _EditProfileField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    icon: Icons.call_outlined,
+                  ),
+                  const SizedBox(height: 15),
+                  _EditProfileField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    icon: Icons.mail_outline_rounded,
+                  ),
+                  const SizedBox(height: 15),
+                  Row(
                     children: [
-                      CircleAvatar(
-                        radius: 55,
-                        backgroundColor: AppColors.primary.withValues(alpha: 0.3),
-                        child: Text(
-                          _nameController.text.isNotEmpty ? _nameController.text[0].toUpperCase() : 'U',
-                          style: Theme.of(context).textTheme.displayMedium?.copyWith(color: AppColors.primary, fontSize: 40),
+                      Expanded(
+                        child: _SocialButton(
+                          dark: true,
+                          icon: Icons.g_mobiledata_rounded,
+                          label: 'Unlink',
+                          onTap: () => _showSocialAction('Google unlink'),
                         ),
                       ),
-                      const Positioned(
-                        right: 0,
-                        bottom: 0,
-                        child: CircleAvatar(
-                          radius: 18,
-                          backgroundColor: AppColors.primary,
-                          child: Icon(Icons.camera_alt, size: 20, color: Colors.white),
+                      const SizedBox(width: 11),
+                      Expanded(
+                        child: _SocialButton(
+                          dark: false,
+                          icon: Icons.facebook_rounded,
+                          label: 'Link',
+                          onTap: () => _showSocialAction('Facebook link'),
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 32),
-                AppTextField(
-                  controller: _nameController,
-                  hintText: 'Full name',
-                  prefixIcon: const Icon(Icons.person_outline, size: 20, color: AppColors.greyBarelyMedium),
-                ),
-                const SizedBox(height: 15),
-                AppTextField(
-                  controller: _emailController,
-                  hintText: 'Email',
-                  keyboardType: TextInputType.emailAddress,
-                  prefixIcon: const Icon(Icons.email_outlined, size: 20, color: AppColors.greyBarelyMedium),
-                ),
-                const SizedBox(height: 15),
-                AppTextField(
-                  controller: _phoneController,
-                  hintText: 'Phone',
-                  keyboardType: TextInputType.phone,
-                  prefixIcon: const Icon(Icons.phone_outlined, size: 20, color: AppColors.greyBarelyMedium),
-                ),
-                const SizedBox(height: 40),
-                SizedBox(
-                  width: double.infinity,
-                  child: AppButton(
-                    label: _saving ? 'Saving...' : 'Save Changes',
-                    isLoading: _saving,
+                  const Spacer(),
+                  AppButton(
+                    label: _saving ? 'Updating...' : 'Update',
                     onPressed: _saving ? null : _save,
+                    isLoading: _saving,
+                    width: double.infinity,
+                    height: 70,
+                    borderRadius: 10,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _EditAvatarFallback extends StatelessWidget {
+  const _EditAvatarFallback({required this.letter});
+
+  final String letter;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.greySoft2,
+      alignment: Alignment.center,
+      child: Text(
+        letter.isEmpty ? 'U' : letter,
+        style: GoogleFonts.lato(
+          fontSize: 30,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textSecondary,
+        ),
+      ),
+    );
+  }
+}
+
+class _EditProfileField extends StatelessWidget {
+  const _EditProfileField({
+    required this.controller,
+    required this.icon,
+    this.keyboardType,
+  });
+
+  final TextEditingController controller;
+  final IconData icon;
+  final TextInputType? keyboardType;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 70,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: AppColors.greySoft1,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: controller,
+              keyboardType: keyboardType,
+              style: GoogleFonts.lato(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+                letterSpacing: 0.36,
+              ),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+          Icon(icon, size: 20, color: AppColors.textPrimary),
+        ],
+      ),
+    );
+  }
+}
+
+class _SocialButton extends StatelessWidget {
+  const _SocialButton({
+    required this.dark,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final bool dark;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = dark ? Colors.white : AppColors.textPrimary;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          height: 70,
+          decoration: BoxDecoration(
+            color: dark ? AppColors.primaryBackground : AppColors.greySoft1,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 25, color: dark ? Colors.amberAccent : Colors.blue),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: GoogleFonts.lato(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: textColor,
+                  letterSpacing: 0.36,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

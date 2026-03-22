@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -78,15 +79,46 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
 
   Future<void> _toggleSaved() async {
     if (_savingFavorite) return;
-    setState(() => _savingFavorite = true);
-    final ok = _isSaved
+    final wasSaved = _isSaved;
+    setState(() {
+      _savingFavorite = true;
+      _isSaved = !wasSaved;
+    });
+    final ok = wasSaved
         ? await _repo.removeSavedEstate(widget.estateId)
         : await _repo.addSavedEstate(widget.estateId);
     if (!mounted) return;
     setState(() {
       _savingFavorite = false;
-      if (ok) _isSaved = !_isSaved;
+      if (!ok) _isSaved = wasSaved;
     });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? (_isSaved ? 'Added to favorites.' : 'Removed from favorites.')
+              : 'Could not update favorites.',
+          style: GoogleFonts.lato(),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _shareListing(_EstateDetailData data) async {
+    final message = StringBuffer()
+      ..writeln(data.title)
+      ..writeln(data.location)
+      ..writeln('\$${_displayPrice(data).toStringAsFixed(0)}');
+    await Clipboard.setData(ClipboardData(text: message.toString().trim()));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Listing details copied to clipboard.',
+          style: GoogleFonts.lato(),
+        ),
+      ),
+    );
   }
 
   bool _effectiveShowRent(_EstateDetailData data) {
@@ -398,7 +430,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
     }
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(24, topInset + 8, 24, 0),
+      padding: EdgeInsets.fromLTRB(0, topInset + 8, 0, 0),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -416,14 +448,14 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
             ),
           ),
           Positioned(
-            left: 0,
-            right: 0,
+            left: 15,
+            right: 15,
             top: 24,
             child: Row(
               children: [
                 _listingToolbarBack(context),
                 const Spacer(),
-                _listingToolbarShare(),
+                _listingToolbarShare(data),
                 const SizedBox(width: 15),
                 _listingToolbarFavorite(),
               ],
@@ -509,9 +541,9 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
     );
   }
 
-  Widget _listingToolbarShare() {
+  Widget _listingToolbarShare(_EstateDetailData data) {
     return _listingToolbarGlassButton(
-      onTap: () {},
+      onTap: () => _shareListing(data),
       child: const Icon(Icons.ios_share, size: 20, color: AppColors.textPrimary),
     );
   }
@@ -544,11 +576,20 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
                   ]
                 : null,
           ),
-          child: Icon(
-            _isSaved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-            size: heartSize,
-            color: Colors.white,
-          ),
+          child: _savingFavorite
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Icon(
+                  _isSaved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                  size: heartSize,
+                  color: Colors.white,
+                ),
         ),
       ),
     );
@@ -584,6 +625,10 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
     }) {
       final selected = selectedPageIndex == pageIndex ||
           (pageIndex == 2 && selectedPageIndex >= 3 && originalImageCount > 3);
+      // Border is part of [BoxDecoration]; the child still gets the full box, so images
+      // can bleed past rounded corners unless we clip to the **inner** radius (Figma `28:4651`).
+      final borderW = selected ? bw + 0.5 : bw;
+      final innerR = (rad - borderW).clamp(0.0, rad);
       return GestureDetector(
         onTap: () => go(pageIndex),
         child: Container(
@@ -593,35 +638,38 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
             borderRadius: BorderRadius.circular(rad),
             border: Border.all(
               color: selected ? AppColors.primary : borderColor,
-              width: selected ? bw + 0.5 : bw,
+              width: borderW,
             ),
           ),
-          clipBehavior: Clip.antiAlias,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              RemoteImage(
-                url: imageUrl,
-                fit: BoxFit.cover,
-                errorWidget: Container(color: AppColors.primaryBackground),
-              ),
-              if (showPlusOverlay) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(rad),
-                  child: const ColoredBox(color: FigmaHantiRiyoTokens.listingDetailGalleryMoreOverlay),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(innerR),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              fit: StackFit.expand,
+              clipBehavior: Clip.hardEdge,
+              children: [
+                RemoteImage(
+                  url: imageUrl,
+                  fit: BoxFit.cover,
+                  width: thumb,
+                  height: thumb,
+                  errorWidget: Container(color: AppColors.primaryBackground),
                 ),
-                Center(
-                  child: Text(
-                    '+$plusCount',
-                    style: GoogleFonts.montserrat(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.greySoft2,
+                if (showPlusOverlay) ...[
+                  const ColoredBox(color: FigmaHantiRiyoTokens.listingDetailGalleryMoreOverlay),
+                  Center(
+                    child: Text(
+                      '+$plusCount',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.greySoft2,
+                      ),
                     ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       );
@@ -886,11 +934,11 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
 
   Widget _buildLocationAddressBlock(_EstateDetailData data) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Container(
-          width: 50,
-          height: 50,
+          width: 30,
+          height: 30,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: AppColors.greySoft1,
@@ -898,7 +946,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
           ),
           child: Icon(Icons.location_on_outlined, size: 22, color: AppColors.textSecondary),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 10),
         Expanded(
           child: Text(
             data.location,
@@ -970,7 +1018,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Row(
             children: [
-              Icon(Icons.place_outlined, size: 20, color: AppColors.textSecondary),
+              Icon(Icons.map_outlined, size: 20, color: AppColors.textSecondary),
               const SizedBox(width: 12),
               Expanded(
                 child: Text.rich(
@@ -1177,15 +1225,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
               ),
             ),
             const Spacer(),
-            Text(
-              'view details',
-              style: GoogleFonts.raleway(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: FigmaHantiRiyoTokens.exploreSearchTextClear,
-                letterSpacing: 0.3,
-              ),
-            ),
+           
           ],
         ),
         const SizedBox(height: 12),
@@ -1285,7 +1325,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
                       style: GoogleFonts.montserrat(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
-                        color: FigmaHantiRiyoTokens.exploreSearchTextTitle,
+                        color: AppColors.greySoft1,
                       ),
                     ),
                   ],
@@ -1296,7 +1336,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
                     TextSpan(
                       style: GoogleFonts.raleway(
                         fontSize: 10,
-                        color: FigmaHantiRiyoTokens.exploreSearchTextList,
+                        color: AppColors.greySoft1,
                         letterSpacing: 0.27,
                       ),
                       children: [
@@ -1558,18 +1598,18 @@ class _LocationDistanceSheet extends StatelessWidget {
               border: Border.all(color: AppColors.greySoft2, width: 1.2),
             ),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
-                  width: 50,
-                  height: 50,
+                  width: 35,
+                  height: 35,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: AppColors.greySoft2,
                     borderRadius: BorderRadius.circular(25),
                     border: Border.all(color: AppColors.greySoft2, width: 1.2),
                   ),
-                  child: Icon(Icons.location_on_rounded, size: 20, color: _pinOrange),
+                  child: Icon(Icons.location_on_outlined, size: 20, color: AppColors.textSecondary),
                 ),
                 const SizedBox(width: 15),
                 Expanded(
@@ -1671,34 +1711,7 @@ class _LocationDistanceSheet extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(20),
-                                child: BackdropFilter(
-                                  filter: ImageFilter.blur(
-                                    sigmaX: FigmaHantiRiyoTokens.listingDetailHeroPillBlurSigma,
-                                    sigmaY: FigmaHantiRiyoTokens.listingDetailHeroPillBlurSigma,
-                                  ),
-                                  child: Material(
-                                    color: AppColors.primary,
-                                    child: InkWell(
-                                      onTap: onEditTap,
-                                      borderRadius: BorderRadius.circular(20),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 19),
-                                        child: Text(
-                                          'Edit',
-                                          style: GoogleFonts.raleway(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w500,
-                                            color: Colors.white,
-                                            letterSpacing: 0.3,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
+                            
                             ],
                           ),
                           const SizedBox(height: 15),

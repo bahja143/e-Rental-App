@@ -398,22 +398,25 @@ class EstateCard extends StatelessWidget {
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                padding: const EdgeInsets.fromLTRB(8, 10, 8, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.start,
                   mainAxisSize: MainAxisSize.max,
                   children: [
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.raleway(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                        letterSpacing: 0.36,
-                        height: 1.5,
+                    SizedBox(
+                      height: 36,
+                      child: Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.lato(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                          letterSpacing: 0.36,
+                          height: 18 / 12,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -427,9 +430,10 @@ class EstateCard extends StatelessWidget {
                         Text(
                           (rating ?? 4.8).toStringAsFixed(1),
                           style: GoogleFonts.montserrat(
-                            fontSize: 10,
+                            fontSize: 8,
                             fontWeight: FontWeight.w700,
                             color: AppColors.greyMedium,
+                            height: 1,
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -440,10 +444,11 @@ class EstateCard extends StatelessWidget {
                             location,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.raleway(
-                              fontSize: 10,
+                            style: GoogleFonts.lato(
+                              fontSize: 8,
                               fontWeight: FontWeight.w400,
                               color: AppColors.greyMedium,
+                              height: 1,
                             ),
                           ),
                         ),

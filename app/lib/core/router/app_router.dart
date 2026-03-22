@@ -21,6 +21,8 @@ import '../../features/home/screens/top_agents_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/profile/screens/edit_profile_screen.dart';
+import '../../features/profile/screens/profile_transaction_screen.dart';
+import '../../features/profile/screens/profile_all_reviews_screen.dart';
 import '../../features/account_setup/screens/user_setup_screen.dart';
 import '../../features/account_setup/screens/location_setup_screen.dart';
 import '../../features/account_setup/screens/intent_setup_screen.dart';
@@ -166,6 +168,8 @@ GoRouter createAppRouter() {
       ),
       GoRoute(path: AppRoutes.settings, builder: (_, __) => const SettingsScreen()),
       GoRoute(path: AppRoutes.editProfile, builder: (_, __) => const EditProfileScreen()),
+      GoRoute(path: AppRoutes.profileTransaction, builder: (_, __) => const ProfileTransactionScreen()),
+      GoRoute(path: AppRoutes.profileReviews, builder: (_, __) => const ProfileAllReviewsScreen()),
       GoRoute(
         path: '${AppRoutes.estate}/:id/reviews',
         builder: (_, state) {

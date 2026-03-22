@@ -52,21 +52,32 @@ class HantiRiyoApp extends StatelessWidget {
     return MediaQuery.withClampedTextScaling(
       minScaleFactor: 1.0,
       maxScaleFactor: 2.5,
-      child: MaterialApp.router(
-        title: 'Hanti riyo',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        routerConfig: createAppRouter(),
-        builder: (context, child) {
-          final mq = MediaQuery.of(context);
+      child: Builder(
+        builder: (outerContext) {
+          final outerMq = MediaQuery.of(outerContext);
+          final minScaler = MinLogicalFontSizeScaler(
+            outerMq.textScaler,
+            minLogicalPixels: AppTheme.minFontSize,
+          );
+          final mqWithMin = outerMq.copyWith(textScaler: minScaler);
           return MediaQuery(
-            data: mq.copyWith(
-              textScaler: MinLogicalFontSizeScaler(
-                mq.textScaler,
-                minLogicalPixels: AppTheme.minFontSize,
-              ),
+            data: mqWithMin,
+            child: MaterialApp.router(
+              title: 'Hanti riyo',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.lightTheme,
+              routerConfig: createAppRouter(),
+              builder: (context, child) {
+                final mq = MediaQuery.of(context);
+                if (identical(mq.textScaler, minScaler)) {
+                  return child ?? const SizedBox.shrink();
+                }
+                return MediaQuery(
+                  data: mq.copyWith(textScaler: minScaler),
+                  child: child ?? const SizedBox.shrink(),
+                );
+              },
             ),
-            child: child ?? const SizedBox.shrink(),
           );
         },
       ),

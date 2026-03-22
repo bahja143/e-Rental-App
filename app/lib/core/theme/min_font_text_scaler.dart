@@ -1,9 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
 import 'app_theme.dart';
 
 /// Ensures scaled text never renders below [minLogicalPixels] (logical px).
-/// Use [AppTheme.minFontSize] from [MaterialApp] builder so all [Text] respects the floor.
+///
+/// Wired in [MaterialApp] / root [MediaQuery] so [Text], [TextField], labels, etc.
+/// use [TextScaler.scale] and respect this floor system-wide.
+@immutable
 class MinLogicalFontSizeScaler extends TextScaler {
   MinLogicalFontSizeScaler(
     this._parent, {
@@ -35,4 +39,19 @@ class MinLogicalFontSizeScaler extends TextScaler {
       minLogicalPixels: minLogicalPixels,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is MinLogicalFontSizeScaler &&
+        other._parent == _parent &&
+        other.minLogicalPixels == minLogicalPixels;
+  }
+
+  @override
+  int get hashCode => Object.hash(_parent, minLogicalPixels);
+
+  @override
+  String toString() =>
+      'MinLogicalFontSizeScaler(min: ${minLogicalPixels}px, parent: $_parent)';
 }

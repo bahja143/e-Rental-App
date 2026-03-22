@@ -5,7 +5,8 @@ import 'app_colors.dart';
 class AppTheme {
   AppTheme._();
 
-  /// Minimum font size applied across the app (home, explore, auth, etc.)
+  /// Minimum **rendered** font size (logical px). Enforced by `MinLogicalFontSizeScaler` in `main.dart`.
+  /// Optional source-level clamp: `app_text_style_min.dart` (`clampMinLogicalFontSize`).
   static const double minFontSize = 10;
 
   static ThemeData get lightTheme {

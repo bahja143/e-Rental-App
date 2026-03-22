@@ -8,6 +8,7 @@ import '../models/top_location_item.dart';
 class EstateRepository {
   EstateRepository({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
 
+  static Set<String>? _savedIdsCache;
   final ApiClient _apiClient;
 
   Future<List<EstateItem>> getSavedEstates() async {
@@ -55,6 +56,7 @@ class EstateRepository {
     }
     try {
       await _apiClient.deleteJson('/favourites/$userId/$listingId');
+      _savedIdsCache?.remove(listingId);
       return true;
     } catch (_) {
       return false;
@@ -67,24 +69,39 @@ class EstateRepository {
       await _apiClient.postJson('/favourites', body: {
         'listing_id': int.tryParse(listingId) ?? listingId,
       });
+      (_savedIdsCache ??= <String>{}).add(listingId);
       return true;
     } catch (_) {
       return false;
     }
   }
 
-  Future<Set<String>> getSavedEstateIds() async {
+  Future<bool> clearSavedEstates(Iterable<String> listingIds) async {
+    var allOk = true;
+    for (final id in listingIds.toSet()) {
+      final ok = await removeSavedEstate(id);
+      if (!ok) allOk = false;
+    }
+    return allOk;
+  }
+
+  Future<Set<String>> getSavedEstateIds({bool forceRefresh = false}) async {
+    if (!forceRefresh && _savedIdsCache != null) {
+      return Set<String>.from(_savedIdsCache!);
+    }
     try {
       final favourites = await _apiClient.getJsonList('/favourites', query: {'limit': 100});
-      return favourites
+      final ids = favourites
           .whereType<Map<String, dynamic>>()
           .map((fav) => fav['listing'])
           .whereType<Map<String, dynamic>>()
           .map((listing) => '${listing['id'] ?? ''}')
           .where((id) => id.isNotEmpty)
           .toSet();
+      _savedIdsCache = ids;
+      return Set<String>.from(ids);
     } catch (_) {
-      return <String>{};
+      return _savedIdsCache != null ? Set<String>.from(_savedIdsCache!) : <String>{};
     }
   }
 

@@ -15,7 +15,10 @@ class ProfileRepository {
         name: '${userMap['name'] ?? ''}',
         email: '${userMap['email'] ?? ''}',
         avatarUrl: userMap['profile_picture_url'] == null ? null : '${userMap['profile_picture_url']}',
+        phone: userMap['phone'] == null ? null : '${userMap['phone']}',
         lookingFor: userMap['looking_for'] == null ? null : '${userMap['looking_for']}',
+        availableBalance: ProfileUser.fromJson(userMap).availableBalance,
+        pendingBalance: ProfileUser.fromJson(userMap).pendingBalance,
       );
       if (profile.name.isNotEmpty && profile.email.isNotEmpty) return profile;
     } catch (_) {

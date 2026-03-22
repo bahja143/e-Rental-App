@@ -116,4 +116,17 @@ abstract final class FigmaHantiRiyoTokens {
 
   /// Primary CTA — same gold shadow language as explore modals
   static const BoxShadow listingDetailPrimaryCtaShadow = exploreSearchModalGoldShadow;
+
+  // --- Saved / Favorite — nodes `34:5908` (list), `34:5930` (empty), `34:5888` (remove) ---
+
+  /// Empty-state hero circle — soft fill behind heart illustration (`34:5930`).
+  static const double savedEmptyCircleSize = 200;
+  static const Color savedEmptyCircleFill = Color(0xFFECEDF3);
+  static const Color savedEmptyCircleBorder = Color(0xFFE0E2EB);
+
+  /// Remove-from-favorite sheet — top radius (`34:5888`).
+  static const double savedRemoveSheetRadiusTop = 25;
+
+  /// Destructive action on remove sheet (body text / accent).
+  static const Color savedRemoveDestructive = Color(0xFFE53935);
 }

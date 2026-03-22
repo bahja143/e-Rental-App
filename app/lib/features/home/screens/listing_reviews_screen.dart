@@ -171,9 +171,10 @@ class _ReviewsHeader extends StatelessWidget {
             Text(
               'Reviews',
               style: GoogleFonts.raleway(
-                fontSize: 14,
+                fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: FigmaHantiRiyoTokens.exploreSearchTextTitle,
+                letterSpacing: 0.54,
                 height: 1,
               ),
             ),

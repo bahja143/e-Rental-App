@@ -21,6 +21,8 @@ class AppRoutes {
   static const notifications = '/notifications';
   static const settings = '/settings';
   static const editProfile = '/edit-profile';
+  static const profileTransaction = '/profile-transaction';
+  static const profileReviews = '/profile-reviews';
   static const explore = '/explore';
   static const topLocations = '/top-locations';
   static const topAgents = '/top-agents';

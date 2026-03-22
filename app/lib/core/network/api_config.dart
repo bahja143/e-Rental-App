@@ -6,7 +6,7 @@ class ApiConfig {
   /// Override at build: flutter run --dart-define=API_BASE_URL=http://YOUR_IP:PORT
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://127.0.0.1:3000/api',
+    defaultValue: 'http://10.209.40.115:3000/api',
   );
 
   /// Optional override for Google Maps / Geocoding REST calls.
