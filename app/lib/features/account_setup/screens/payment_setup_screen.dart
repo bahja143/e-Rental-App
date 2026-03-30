@@ -293,6 +293,18 @@ class _PaymentSetupScreenState extends State<PaymentSetupScreen> {
         : _selectedPayment == 1
             ? 'card'
             : 'visa';
+    if (_nameController.text.trim().length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter the account holder name.')),
+      );
+      return;
+    }
+    if (method == 'paypal' && _emailController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter the PayPal email.')),
+      );
+      return;
+    }
     if (method != 'paypal' &&
         (_cardController.text.trim().isEmpty || _expiryController.text.trim().isEmpty || _cvcController.text.trim().isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -304,6 +316,8 @@ class _PaymentSetupScreenState extends State<PaymentSetupScreen> {
     setState(() => _saving = true);
     final ok = await AccountSetupRepository().savePayment(
       method: method,
+      holderName: _nameController.text.trim(),
+      email: _emailController.text.trim(),
       cardNumber: _cardController.text.trim(),
       expiry: _expiryController.text.trim(),
       cvc: _cvcController.text.trim(),

@@ -122,6 +122,8 @@ class AccountSetupRepository {
 
   Future<bool> savePayment({
     required String method,
+    required String holderName,
+    String? email,
     String? cardNumber,
     String? expiry,
     String? cvc,
@@ -129,16 +131,28 @@ class AccountSetupRepository {
     try {
       final userId = await _currentUserId();
       if (userId == null) return false;
-
-      const holderName = 'Primary Account Holder';
       final normalizedMethod = method.toLowerCase();
+      final normalizedHolder = holderName.trim();
+      if (normalizedHolder.length < 2) return false;
+      final bankName = normalizedMethod == 'paypal'
+          ? 'PayPal'
+          : normalizedMethod == 'visa'
+              ? 'Visa'
+              : 'Mastercard';
+      final accountNo = normalizedMethod == 'paypal'
+          ? (email?.trim().toLowerCase() ?? '')
+          : _normalizeAccountNo(cardNumber);
+      final branch = normalizedMethod == 'paypal'
+          ? 'Online'
+          : (expiry?.trim().isNotEmpty == true ? expiry!.trim() : 'Card');
+      if (accountNo.isEmpty || branch.length < 2) return false;
+
       await _apiClient.postJson('/user-bank-accounts', body: {
         'user_id': int.tryParse(userId) ?? userId,
-        'bank_name': normalizedMethod == 'paypal' ? 'PayPal' : 'Card Payment',
-        'branch': normalizedMethod == 'paypal' ? 'Online' : 'Main',
-        'account_no': _normalizeAccountNo(cardNumber),
-        'account_holder_name': holderName,
-        if (normalizedMethod != 'paypal' && cvc != null && cvc.isNotEmpty) 'swift_code': 'HANTUS33',
+        'bank_name': bankName,
+        'branch': branch,
+        'account_no': accountNo,
+        'account_holder_name': normalizedHolder,
         'is_default': true,
       });
       return true;
@@ -150,8 +164,8 @@ class AccountSetupRepository {
   String _normalizeAccountNo(String? cardNumber) {
     final digits = (cardNumber ?? '').replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.length >= 8) {
-      return digits.substring(0, digits.length > 20 ? 20 : digits.length);
+      return digits.substring(0, digits.length > 120 ? 120 : digits.length);
     }
-    return '100020003000';
+    return '';
   }
 }

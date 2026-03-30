@@ -163,7 +163,39 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
           );
         }
 
-        final data = snapshot.data ?? _EstateDetailData.fallback(widget);
+        if (snapshot.hasError || !snapshot.hasData) {
+          return Scaffold(
+            backgroundColor: Colors.white,
+            body: SafeArea(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Could not load listing',
+                      style: GoogleFonts.lato(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.greyMedium,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _detailFuture = _loadDetail();
+                        });
+                      },
+                      child: const Text('Try again'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        final data = snapshot.data!;
         return Scaffold(
           backgroundColor: Colors.white,
           body: CustomScrollView(
@@ -1773,38 +1805,6 @@ class _EstateDetailData {
   double get mapLat => latitude ?? _fallbackMapLat;
   double get mapLng => longitude ?? _fallbackMapLng;
 
-  factory _EstateDetailData.fallback(EstateDetailScreen widget) {
-    final mockReviews = ListingReview.mockListForListing(widget.estateId);
-    final avgRating = mockReviews.isEmpty
-        ? 4.8
-        : mockReviews.map((e) => e.rating.toDouble()).reduce((a, b) => a + b) / mockReviews.length;
-    return _EstateDetailData(
-      title: widget.title,
-      location: widget.location,
-      price: widget.price,
-      rentPrice: widget.price,
-      sellPrice: 250000,
-      imageUrl: widget.imageUrl,
-      imageUrls: [widget.imageUrl],
-      propertyTypeLabel: 'Apartment',
-      isRent: true,
-      isForSale: true,
-      bedrooms: 2,
-      bathrooms: 1,
-      reviewCount: mockReviews.length,
-      description: widget.description ??
-          'Property Overview\nOwnership Type: freehold / leasehold\nLorem ipsum dolor sit amet, consectetur adipiscing elit.',
-      facilities: const ['Parking lot', 'Pet Friendly', 'Garden', 'Gym', 'Park', 'Home theatre'],
-      agentName: 'Anderson',
-      agentAvatarUrl: '',
-      rating: avgRating,
-      reviews: mockReviews,
-      nearby: const [],
-      latitude: null,
-      longitude: null,
-    );
-  }
-
   factory _EstateDetailData.fromApi({
     required Map<String, dynamic>? listing,
     required List<EstateItem> nearby,
@@ -1845,11 +1845,20 @@ class _EstateDetailData {
     final isForSale = sellPrice > 0;
 
     var bedrooms = _toInt(data['bedrooms'] ?? data['bedroom_count']);
-    if (bedrooms <= 0) bedrooms = 2;
     var bathrooms = _toInt(data['bathrooms'] ?? data['bathroom_count']);
-    if (bathrooms <= 0) bathrooms = 1;
+    final listingFeatures = data['listingFeatures'];
+    if (listingFeatures is List) {
+      for (final item in listingFeatures.whereType<Map<String, dynamic>>()) {
+        final feature = item['propertyFeature'];
+        if (feature is! Map<String, dynamic>) continue;
+        final name = '${feature['name_en'] ?? feature['name_so'] ?? ''}'.toLowerCase();
+        final value = _toInt(item['value']);
+        if (name.contains('bedroom') && bedrooms <= 0) bedrooms = value;
+        if (name.contains('bathroom') && bathrooms <= 0) bathrooms = value;
+      }
+    }
 
-    var propertyTypeLabel = 'Apartment';
+    var propertyTypeLabel = '';
     final types = data['listingTypes'] ?? data['listing_types'];
     if (types is List && types.isNotEmpty) {
       final first = types.first;
@@ -1873,7 +1882,7 @@ class _EstateDetailData {
 
     final reviewItems = reviews.map(ListingReview.fromJson).toList();
     final avgRating = reviewItems.isEmpty
-        ? 4.8
+        ? 0.0
         : reviewItems.map((e) => e.rating.toDouble()).reduce((a, b) => a + b) / reviewItems.length;
 
     final user = data['user'];
@@ -1901,8 +1910,8 @@ class _EstateDetailData {
       description: '${data['description'] ?? widgetFallback.description ?? ''}'.trim().isEmpty
           ? 'No description provided.'
           : '${data['description'] ?? widgetFallback.description}',
-      facilities: facilities.isEmpty ? const ['Parking lot', 'Pet Friendly'] : facilities,
-      agentName: '${userMap['name'] ?? 'Agent'}',
+      facilities: facilities,
+      agentName: '${userMap['name'] ?? ''}',
       agentAvatarUrl: '${userMap['profile_picture_url'] ?? ''}',
       rating: avgRating,
       reviews: reviewItems,
@@ -1956,4 +1965,3 @@ class _EstateDetailData {
     return int.tryParse('$value') ?? 0;
   }
 }
-

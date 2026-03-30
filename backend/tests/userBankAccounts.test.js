@@ -1,13 +1,36 @@
+process.env.NODE_ENV = 'test';
+
 const request = require('supertest');
-const app = require('../src/app');
-const { User, UserBankAccount } = require('../src/models');
-const { sequelize } = require('../src/models');
+const { User, UserBankAccount, sequelize } = require('../src/models');
+
+jest.mock('../src/middleware/authMiddleware', () => ({
+  authenticateToken: (req, res, next) => {
+    req.user = { id: 1, role: 'admin' };
+    next();
+  },
+}));
+
+const mongoose = require('mongoose');
+jest.mock('../src/queues', () => ({
+  emailQueue: {
+    add: jest.fn(),
+    close: jest.fn(),
+  },
+  emailWorker: {
+    close: jest.fn(),
+  },
+}));
+
+jest.setTimeout(20000);
 
 describe('User Bank Accounts API', () => {
+  let app;
   let testUser;
   let testUserBankAccount;
 
   beforeAll(async () => {
+    app = require('../src/app');
+
     // Sync database
     await sequelize.sync({ force: true });
 
@@ -25,6 +48,7 @@ describe('User Bank Accounts API', () => {
 
   afterAll(async () => {
     await sequelize.close();
+    await mongoose.connection.close();
   });
 
   describe('POST /api/user-bank-accounts', () => {
@@ -103,12 +127,12 @@ describe('User Bank Accounts API', () => {
           user_id: testUser.id,
           bank_name: 'Test Bank',
           branch: 'Main Branch',
-          account_no: '123', // Too short
+          account_no: '12', // Too short
           account_holder_name: 'Test User',
         });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toBe('Valid account_no is required (8-20 characters, numbers and hyphens only)');
+      expect(response.body.error).toBe('Valid account_no is required (3-120 characters, letters, numbers, @ . _ - only)');
     });
 
     it('should return 400 for invalid SWIFT code', async () => {

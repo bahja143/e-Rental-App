@@ -50,7 +50,34 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
               );
             }
 
-            final data = snapshot.data ?? TransactionDetailData.fallback(widget.transactionId);
+            if (snapshot.hasError || !snapshot.hasData) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Could not load transaction',
+                      style: GoogleFonts.lato(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.greyMedium,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _detailFuture = TransactionRepository().getTransactionDetail(widget.transactionId);
+                        });
+                      },
+                      child: const Text('Try again'),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            final data = snapshot.data!;
             _selectedIssue ??= data.issueOptions.first;
 
             return Column(
@@ -121,7 +148,34 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                     ],
                   ),
                 ),
-                if (data.canAddReview)
+                if (data.hasDispute)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => context.push(AppRoutes.transactionDisputeRoute(data.id)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(60),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          'View Dispute',
+                          style: GoogleFonts.lato(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.48,
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                else if (data.canAddReview)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                     child: SizedBox(

@@ -1,209 +1,92 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Row, Col, Table, Spinner, Form, Button } from 'react-bootstrap';
+import { Alert, Badge, Button, Col, Row, Spinner, Table } from 'react-bootstrap';
 import Chart from 'react-apexcharts';
-import { getListings, getListingRentals, getUsers, getCompanyEarningsSummary } from '../../services/rentalApi';
+import { getAdminOverview } from '../../services/rentalApi';
 
-const formatMoney = (value) => `$${Number(value || 0).toLocaleString()}`;
-
-const parseDate = (value) => {
-  if (!value) return null;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d;
-};
-
-const STATUS_OPTIONS = ['', 'pending', 'confirmed', 'cancelled', 'completed'];
+const money = (value) => `$${Number(value || 0).toLocaleString()}`;
 
 const DashRental = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [overview, setOverview] = useState(null);
 
-  const [statusFilter, setStatusFilter] = useState('');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-
-  const [listings, setListings] = useState([]);
-  const [rentals, setRentals] = useState([]);
-  const [stats, setStats] = useState({ listings: 0, rentals: 0, users: 0, earnings: 0 });
-  const [earningsSummary, setEarningsSummary] = useState(null);
-
-  const loadDashboard = useCallback(
-    async (isRefresh = false) => {
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
-      setError('');
-
-      const rentalParams = { limit: 400, page: 1 };
-      if (statusFilter) rentalParams.status = statusFilter;
-
-      const [listingsRes, rentalsRes, usersRes, earningsRes] = await Promise.allSettled([
-        getListings({ limit: 300, page: 1 }),
-        getListingRentals(rentalParams),
-        getUsers({ limit: 1, page: 1 }),
-        getCompanyEarningsSummary()
-      ]);
-
-      const listingRows = listingsRes.status === 'fulfilled' ? listingsRes.value.data?.data ?? [] : [];
-      const rentalRows = rentalsRes.status === 'fulfilled' ? rentalsRes.value.data?.data ?? [] : [];
-      const usersTotal = usersRes.status === 'fulfilled' ? usersRes.value.data?.pagination?.totalItems ?? 0 : 0;
-
-      if (listingsRes.status === 'rejected' && rentalsRes.status === 'rejected' && usersRes.status === 'rejected') {
-        setError('Unable to load dashboard data from backend.');
-      }
-
-      setListings(listingRows);
-      setRentals(rentalRows);
-      setEarningsSummary(earningsRes.status === 'fulfilled' ? earningsRes.value.data ?? null : null);
-
-      const totalListings =
-        listingsRes.status === 'fulfilled' ? listingsRes.value.data?.pagination?.total ?? listingRows.length : listingRows.length;
-      const totalRentals =
-        rentalsRes.status === 'fulfilled' ? rentalsRes.value.data?.pagination?.totalItems ?? rentalRows.length : rentalRows.length;
-      const grossRevenue = rentalRows.reduce((sum, r) => sum + Number(r.total ?? r.subtotal ?? 0), 0);
-      setStats({ listings: totalListings, rentals: totalRentals, users: usersTotal, earnings: grossRevenue });
-
+  const loadOverview = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    setError('');
+    try {
+      const res = await getAdminOverview({ months: 6, recentLimit: 8 });
+      setOverview(res.data ?? null);
+    } catch (err) {
+      console.error(err);
+      setError(err?.error || err?.message || 'Failed to load admin overview.');
+      setOverview(null);
+    } finally {
       setLoading(false);
       setRefreshing(false);
-    },
-    [statusFilter]
-  );
+    }
+  }, []);
 
   useEffect(() => {
-    loadDashboard(false);
-  }, [loadDashboard]);
+    loadOverview(false);
+  }, [loadOverview]);
 
-  const filteredRentals = useMemo(
-    () =>
-      rentals.filter((r) => {
-        const date = parseDate(r.start_date || r.createdAt);
-        if (!date && (fromDate || toDate)) return false;
-        if (fromDate && date && date < new Date(fromDate)) return false;
-        if (toDate && date) {
-          const to = new Date(toDate);
-          to.setHours(23, 59, 59, 999);
-          if (date > to) return false;
-        }
-        return true;
-      }),
-    [rentals, fromDate, toDate]
-  );
+  const metrics = overview?.metrics ?? {};
+  const finance = overview?.finances ?? {};
+  const statuses = overview?.rentals?.statuses ?? {};
+  const monthlyTrend = overview?.rentals?.monthlyTrend ?? [];
+  const recentRentals = overview?.rentals?.recent ?? [];
+  const topListings = overview?.topListings ?? [];
 
-  const status = useMemo(() => {
-    const pending = filteredRentals.filter((r) => r.status === 'pending').length;
-    const confirmed = filteredRentals.filter((r) => r.status === 'confirmed').length;
-    const completed = filteredRentals.filter((r) => r.status === 'completed').length;
-    const cancelled = filteredRentals.filter((r) => r.status === 'cancelled').length;
-    return { pending, confirmed, completed, cancelled };
-  }, [filteredRentals]);
-
-  const occupancy = listings.length > 0 ? Math.min(100, Math.round((filteredRentals.length / listings.length) * 100)) : 0;
-  const conversion = stats.users > 0 ? Math.min(100, Math.round((filteredRentals.length / stats.users) * 100)) : 0;
-  const completionRate = filteredRentals.length > 0 ? Math.round((status.completed / filteredRentals.length) * 100) : 0;
-  const cancellationRate = filteredRentals.length > 0 ? Math.round((status.cancelled / filteredRentals.length) * 100) : 0;
-  const avgOrderValue = filteredRentals.length > 0 ? Math.round(stats.earnings / filteredRentals.length) : 0;
-
-  const kpiChartOptions = useMemo(
+  const monthlyChartOptions = useMemo(
     () => ({
-      chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'inherit' },
-      plotOptions: { bar: { borderRadius: 4, horizontal: false, columnWidth: '55%' } },
-      dataLabels: { enabled: true, formatter: (v) => `${v}%` },
-      xaxis: { categories: ['Occupancy', 'Conversion', 'Completion', 'Cancellation'] },
-      yaxis: { max: 100, tickAmount: 5, labels: { formatter: (v) => `${v}%` } },
-      colors: ['#e7b904', '#2c6e97', '#28a745', '#dc3545'],
-      grid: { borderColor: '#eee', strokeDashArray: 3, xaxis: { lines: { show: false } } },
-      tooltip: { y: { formatter: (v) => `${v}%` } }
+      chart: { type: 'area', toolbar: { show: false }, fontFamily: 'inherit' },
+      colors: ['#1f4c6b', '#e7b904'],
+      stroke: { curve: 'smooth', width: 3 },
+      fill: {
+        type: 'gradient',
+        gradient: {
+          shadeIntensity: 1,
+          opacityFrom: 0.25,
+          opacityTo: 0.03,
+          stops: [0, 100],
+        },
+      },
+      dataLabels: { enabled: false },
+      xaxis: { categories: monthlyTrend.map((item) => item.month) },
+      yaxis: [
+        { title: { text: 'Revenue' }, labels: { formatter: (value) => `$${Math.round(value)}` } },
+        { opposite: true, title: { text: 'Rentals' } },
+      ],
+      grid: { borderColor: '#edf0f5', strokeDashArray: 4 },
+      legend: { position: 'top', horizontalAlign: 'right' },
     }),
-    []
+    [monthlyTrend]
   );
 
-  const kpiChartSeries = useMemo(
-    () => [{ name: 'KPI %', data: [occupancy, conversion, completionRate, cancellationRate] }],
-    [occupancy, conversion, completionRate, cancellationRate]
+  const monthlyChartSeries = useMemo(
+    () => [
+      {
+        name: 'Revenue',
+        type: 'area',
+        data: monthlyTrend.map((item) => Number(item.revenue || 0)),
+      },
+      {
+        name: 'Rentals',
+        type: 'line',
+        data: monthlyTrend.map((item) => Number(item.rentals || 0)),
+      },
+    ],
+    [monthlyTrend]
   );
-
-  const statusChartOptions = useMemo(
-    () => ({
-      chart: { type: 'donut', fontFamily: 'inherit' },
-      labels: ['Pending', 'Confirmed', 'Completed', 'Cancelled'],
-      colors: ['#ffc107', '#28a745', '#1f4c6b', '#dc3545'],
-      legend: { position: 'bottom', horizontalAlign: 'center' },
-      plotOptions: { pie: { donut: { size: '55%', labels: { show: true, total: { show: true, label: 'Rentals' } } } } },
-      noData: { text: 'No rentals', align: 'center', verticalAlign: 'middle' }
-    }),
-    []
-  );
-
-  const statusChartSeries = useMemo(
-    () => [status.pending, status.confirmed, status.completed, status.cancelled],
-    [status.pending, status.confirmed, status.completed, status.cancelled]
-  );
-
-  const topListings = useMemo(() => {
-    const map = new Map();
-    filteredRentals.forEach((r) => {
-      const name = r.listing?.title ?? `Listing ${r.list_id ?? '-'}`;
-      const prev = map.get(name) ?? { count: 0, revenue: 0 };
-      map.set(name, { count: prev.count + 1, revenue: prev.revenue + Number(r.total ?? r.subtotal ?? 0) });
-    });
-    return [...map.entries()]
-      .map(([name, value]) => ({ name, ...value }))
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5);
-  }, [filteredRentals]);
-
-  const timeline = useMemo(() => {
-    const months = new Map();
-    filteredRentals.forEach((r) => {
-      const date = parseDate(r.createdAt || r.start_date);
-      if (!date) return;
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      months.set(key, (months.get(key) ?? 0) + 1);
-    });
-    return [...months.entries()]
-      .map(([month, count]) => ({ month, count }))
-      .sort((a, b) => (a.month < b.month ? -1 : 1))
-      .slice(-12);
-  }, [filteredRentals]);
-
-  const exportCsv = () => {
-    if (filteredRentals.length === 0) return;
-    try {
-      const headers = ['id', 'listing', 'renter', 'status', 'start_date', 'end_date', 'total'];
-      const lines = filteredRentals.map((r) =>
-        [
-          r.id,
-          r.listing?.title ?? r.list_id ?? '',
-          r.renter?.name ?? r.renter_id ?? '',
-          r.status ?? '',
-          r.start_date ?? '',
-          r.end_date ?? '',
-          r.total ?? r.subtotal ?? ''
-        ]
-          .map((x) => String(x).replace(/[,]/g, ' '))
-          .join(',')
-      );
-      const csv = [headers.join(','), ...lines].join('\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `dashboard-rentals-${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Export failed:', err);
-      alert('Export failed. Please try again.');
-    }
-  };
 
   if (loading) {
     return (
       <Row>
         <Col className="text-center py-5">
-          <Spinner animation="border" />
+          <Spinner animation="border" style={{ color: '#e7b904' }} />
         </Col>
       </Row>
     );
@@ -213,20 +96,20 @@ const DashRental = () => {
     <div className="rental-page advanced-dashboard-shell">
       <div className="advanced-hero">
         <div>
-          <h3 className="advanced-hero-title">Executive Rental Dashboard</h3>
-          <p className="advanced-hero-subtitle">One powerful command center for KPI, performance and financial visibility.</p>
+          <h3 className="advanced-hero-title">Back Office Overview</h3>
+          <p className="advanced-hero-subtitle">Listings, rentals, finance, and operations in one admin snapshot.</p>
         </div>
-        <div className="advanced-hero-actions">
-          <Button variant="outline-brand" size="sm" onClick={exportCsv} disabled={filteredRentals.length === 0}>
-            <i className="feather icon-download me-1" />
-            Export
-          </Button>
-          <Button size="sm" onClick={() => loadDashboard(true)} disabled={refreshing}>
-            <i className="feather icon-refresh-cw me-1" />
+        <div className="advanced-hero-actions d-flex gap-2">
+          <Link to="/app/rental/reports" className="btn btn-outline-brand btn-sm">
+            Open Reports
+          </Link>
+          <Button size="sm" onClick={() => loadOverview(true)} disabled={refreshing}>
             {refreshing ? 'Refreshing...' : 'Refresh'}
           </Button>
         </div>
       </div>
+
+      {error && <Alert variant="danger">{error}</Alert>}
 
       <Row className="g-4 mb-1">
         <Col xl={3} md={6}>
@@ -236,7 +119,7 @@ const DashRental = () => {
             </div>
             <div>
               <div className="metric-label">Listings</div>
-              <div className="metric-value">{stats.listings}</div>
+              <div className="metric-value">{metrics.listings ?? 0}</div>
             </div>
           </div>
         </Col>
@@ -247,7 +130,7 @@ const DashRental = () => {
             </div>
             <div>
               <div className="metric-label">Rentals</div>
-              <div className="metric-value">{stats.rentals}</div>
+              <div className="metric-value">{metrics.rentals ?? 0}</div>
             </div>
           </div>
         </Col>
@@ -258,7 +141,7 @@ const DashRental = () => {
             </div>
             <div>
               <div className="metric-label">Users</div>
-              <div className="metric-value">{stats.users}</div>
+              <div className="metric-value">{metrics.users ?? 0}</div>
             </div>
           </div>
         </Col>
@@ -269,59 +152,86 @@ const DashRental = () => {
             </div>
             <div>
               <div className="metric-label">Gross Revenue</div>
-              <div className="metric-value">{formatMoney(stats.earnings)}</div>
+              <div className="metric-value">{money(metrics.grossRevenue)}</div>
             </div>
           </div>
         </Col>
       </Row>
 
-      <div className="advanced-panel">
-        <div className="advanced-panel-header">
-          <h5>Performance</h5>
-          <div className="d-flex gap-2 flex-wrap">
-            <Form.Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ width: 140 }}>
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s || 'all'} value={s}>
-                  {s || 'All statuses'}
-                </option>
-              ))}
-            </Form.Select>
-            <Form.Control type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} style={{ width: 145 }} />
-            <Form.Control type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} style={{ width: 145 }} />
+      <Row className="g-4 mb-1">
+        <Col lg={8}>
+          <div className="advanced-panel">
+            <div className="advanced-panel-header">
+              <h5>
+                <i className="feather icon-trending-up me-2" />
+                Revenue Trend
+              </h5>
+            </div>
+            {monthlyTrend.length === 0 ? (
+              <div className="text-muted">No rental history available yet.</div>
+            ) : (
+              <Chart options={monthlyChartOptions} series={monthlyChartSeries} type="line" height={320} />
+            )}
           </div>
-        </div>
-        {error && <div className="text-danger mb-2">{error}</div>}
-        <Row className="g-4">
-          <Col lg={7}>
-            <div className="perf-chart-box">
-              <h6>KPI Metrics (%)</h6>
-              <Chart options={kpiChartOptions} series={kpiChartSeries} type="bar" height={240} />
+        </Col>
+        <Col lg={4}>
+          <div className="advanced-panel h-100">
+            <div className="advanced-panel-header">
+              <h5>
+                <i className="feather icon-activity me-2" />
+                Operations Pulse
+              </h5>
             </div>
-          </Col>
-          <Col lg={5}>
-            <div className="perf-chart-box">
-              <h6>Rental Status</h6>
-              <Chart options={statusChartOptions} series={statusChartSeries} type="donut" height={240} />
+            <div className="metric-inline">
+              <span>Platform Revenue</span>
+              <strong>{money(finance.platformRevenue)}</strong>
             </div>
-          </Col>
-        </Row>
-        <div className="perf-footer mt-3">
-          <span>Avg Order Value: <strong>{formatMoney(avgOrderValue)}</strong></span>
-          <span className="ms-3">Earnings: <strong className="text-brand-primary">{formatMoney(earningsSummary?.total_earnings)}</strong></span>
-        </div>
-      </div>
+            <div className="metric-inline">
+              <span>Pending Rentals</span>
+              <strong>{statuses.pending ?? 0}</strong>
+            </div>
+            <div className="metric-inline">
+              <span>Confirmed Rentals</span>
+              <strong>{statuses.confirmed ?? 0}</strong>
+            </div>
+            <div className="metric-inline">
+              <span>Completed Rentals</span>
+              <strong>{statuses.completed ?? 0}</strong>
+            </div>
+            <div className="metric-inline">
+              <span>Cancelled Rentals</span>
+              <strong>{statuses.cancelled ?? 0}</strong>
+            </div>
+            <div className="metric-inline">
+              <span>Pending Withdrawals</span>
+              <strong>{metrics.pendingWithdrawals ?? 0}</strong>
+            </div>
+            <div className="metric-inline">
+              <span>Active Coupons</span>
+              <strong>{metrics.activeCoupons ?? 0}</strong>
+            </div>
+            <div className="metric-inline mb-0">
+              <span>Active Promotions</span>
+              <strong>{metrics.activePromotions ?? 0}</strong>
+            </div>
+          </div>
+        </Col>
+      </Row>
 
       <Row className="g-4 mb-1">
-        <Col xl={6}>
+        <Col xl={5}>
           <div className="advanced-panel h-100">
             <div className="advanced-panel-header">
               <h5>
                 <i className="feather icon-award me-2" />
-                Top Performing Listings
+                Top Listings
               </h5>
+              <Link to="/app/rental/listings" className="btn btn-sm btn-outline-brand">
+                Manage listings
+              </Link>
             </div>
             {topListings.length === 0 ? (
-              <div className="text-muted">No listing performance data in current filters.</div>
+              <div className="text-muted">No listing performance data yet.</div>
             ) : (
               <Table hover responsive className="rental-table mb-0">
                 <thead>
@@ -332,11 +242,11 @@ const DashRental = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {topListings.map((row) => (
-                    <tr key={row.name}>
-                      <td>{row.name}</td>
-                      <td>{row.count}</td>
-                      <td className="fw-bold text-brand-primary">{formatMoney(row.revenue)}</td>
+                  {topListings.map((item) => (
+                    <tr key={item.listingId}>
+                      <td>{item.title}</td>
+                      <td>{item.rentals}</td>
+                      <td className="fw-bold text-brand-primary">{money(item.revenue)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -344,29 +254,42 @@ const DashRental = () => {
             )}
           </div>
         </Col>
-        <Col xl={6}>
+        <Col xl={7}>
           <div className="advanced-panel h-100">
             <div className="advanced-panel-header">
               <h5>
-                <i className="feather icon-bar-chart-2 me-2" />
-                12-Month Activity
+                <i className="feather icon-clock me-2" />
+                Recent Rentals
               </h5>
+              <Link to="/app/rental/rentals" className="btn btn-sm btn-primary">
+                Review rentals
+              </Link>
             </div>
-            {timeline.length === 0 ? (
-              <div className="text-muted">No monthly activity available.</div>
+            {recentRentals.length === 0 ? (
+              <div className="text-muted">No recent rentals yet.</div>
             ) : (
-              <Table hover responsive className="rental-table mb-0">
+              <Table hover responsive className="rental-table mb-0 align-middle">
                 <thead>
                   <tr>
-                    <th>Month</th>
-                    <th>Rentals</th>
+                    <th>ID</th>
+                    <th>Listing</th>
+                    <th>Renter</th>
+                    <th>Status</th>
+                    <th>Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {timeline.map((m) => (
-                    <tr key={m.month}>
-                      <td>{m.month}</td>
-                      <td>{m.count}</td>
+                  {recentRentals.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.id}</td>
+                      <td>{item.listing?.title ?? '-'}</td>
+                      <td>{item.renter?.name ?? '-'}</td>
+                      <td>
+                        <Badge bg={item.status === 'confirmed' ? 'success' : item.status === 'cancelled' ? 'danger' : 'secondary'}>
+                          {item.status}
+                        </Badge>
+                      </td>
+                      <td>{money(item.total)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -375,62 +298,6 @@ const DashRental = () => {
           </div>
         </Col>
       </Row>
-
-      <div className="advanced-panel mb-0">
-        <div className="advanced-panel-header">
-          <h5>
-            <i className="feather icon-clock me-2" />
-            Latest Rentals
-          </h5>
-          <div className="d-flex gap-2">
-            <Link to="/app/rental/coupons" className="btn btn-sm btn-outline-brand">
-              Coupons
-            </Link>
-            <Link to="/app/rental/promotions" className="btn btn-sm btn-outline-brand">
-              Promotions
-            </Link>
-            <Link to="/app/rental/rentals" className="btn btn-sm btn-primary">
-              View all
-            </Link>
-          </div>
-        </div>
-        {filteredRentals.length === 0 ? (
-          <div className="text-muted">No rentals in selected filters.</div>
-        ) : (
-          <Table hover responsive className="rental-table mb-0">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Listing</th>
-                <th>Renter</th>
-                <th>Status</th>
-                <th>Dates</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRentals.slice(0, 20).map((r) => (
-                <tr key={r.id}>
-                  <td>{r.id}</td>
-                  <td>{r.listing?.title ?? r.list_id}</td>
-                  <td>{r.renter?.name ?? r.renter_id}</td>
-                  <td>
-                    <span
-                      className={`badge bg-${r.status === 'confirmed' ? 'success' : r.status === 'cancelled' ? 'danger' : 'secondary'}`}
-                    >
-                      {r.status}
-                    </span>
-                  </td>
-                  <td>
-                    {(parseDate(r.start_date)?.toLocaleDateString() || '-') + ' - ' + (parseDate(r.end_date)?.toLocaleDateString() || '-')}
-                  </td>
-                  <td>{formatMoney(r.total ?? r.subtotal)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        )}
-      </div>
     </div>
   );
 };

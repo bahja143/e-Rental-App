@@ -23,6 +23,8 @@ jest.mock('../src/queues', () => ({
   },
 }));
 
+jest.setTimeout(20000);
+
 
 describe('Users API', () => {
   let app;
@@ -506,7 +508,7 @@ describe('Users API', () => {
         })
         .expect(409);
 
-      expect(response.body.error).toBe('email already exists');
+      expect(response.body.error).toBe('This email is already linked to an account');
     });
 
     it('should handle duplicate phone', async () => {
@@ -527,7 +529,7 @@ describe('Users API', () => {
         })
         .expect(409);
 
-      expect(response.body.error).toBe('phone already exists');
+      expect(response.body.error).toBe('This mobile number is already linked to an account');
     });
   });
 
@@ -585,6 +587,16 @@ describe('Users API', () => {
 
       expect(response.body.user.lat).toBe(41.8781);
       expect(response.body.user.lng).toBe(-87.6298);
+    });
+
+    it('should update email address', async () => {
+      const response = await request(app)
+        .put(`/api/users/${testUser.id}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ email: 'updated@example.com' })
+        .expect(200);
+
+      expect(response.body.user.email).toBe('updated@example.com');
     });
 
     it('should return 404 for non-existent user', async () => {

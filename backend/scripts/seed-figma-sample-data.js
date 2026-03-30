@@ -187,6 +187,32 @@ const FAQ_SEEDS = [
   },
 ];
 
+const PROPERTY_CATEGORY_SEEDS = [
+  { name_en: 'Apartment', name_so: 'Apartment' },
+  { name_en: 'Villa', name_so: 'Villa' },
+  { name_en: 'House', name_so: 'House' },
+  { name_en: 'Bungalow', name_so: 'Bungalow' },
+];
+
+const PROPERTY_FEATURE_SEEDS = [
+  { name_en: 'Bedroom', name_so: 'Qol jiif', type: 'number' },
+  { name_en: 'Bathroom', name_so: 'Musqul', type: 'number' },
+  { name_en: 'Area', name_so: 'Baaxad', type: 'string' },
+];
+
+const FACILITY_SEEDS = [
+  { name_en: 'Parking', name_so: 'Baarkin' },
+  { name_en: 'Swimming Pool', name_so: 'Barkad dabaal' },
+  { name_en: 'Garden', name_so: 'Beer' },
+  { name_en: 'WiFi', name_so: 'WiFi' },
+];
+
+const NEARBY_PLACE_SEEDS = [
+  { name_en: 'Hospital', name_so: 'Isbitaal' },
+  { name_en: 'School', name_so: 'Dugsi' },
+  { name_en: 'Bus Stop', name_so: 'Meesha baska' },
+];
+
 async function seedUsers() {
   const userMap = new Map();
 
@@ -264,6 +290,130 @@ async function seedListings(userMap) {
   }
 
   return listings;
+}
+
+async function seedListingMetadata(listings) {
+  const categoryMap = new Map();
+  for (const seed of PROPERTY_CATEGORY_SEEDS) {
+    const [row] = await db.PropertyCategory.findOrCreate({
+      where: { name_en: seed.name_en },
+      defaults: seed,
+    });
+    categoryMap.set(seed.name_en, row);
+  }
+
+  const featureMap = new Map();
+  for (const seed of PROPERTY_FEATURE_SEEDS) {
+    const [row] = await db.PropertyFeatures.findOrCreate({
+      where: { name_en: seed.name_en },
+      defaults: seed,
+    });
+    featureMap.set(seed.name_en, row);
+  }
+
+  const facilityMap = new Map();
+  for (const seed of FACILITY_SEEDS) {
+    const [row] = await db.Facility.findOrCreate({
+      where: { name_en: seed.name_en },
+      defaults: seed,
+    });
+    facilityMap.set(seed.name_en, row);
+  }
+
+  const nearbyPlaceMap = new Map();
+  for (const seed of NEARBY_PLACE_SEEDS) {
+    const [row] = await db.NearbyPlace.findOrCreate({
+      where: { name_en: seed.name_en },
+      defaults: seed,
+    });
+    nearbyPlaceMap.set(seed.name_en, row);
+  }
+
+  for (const listing of listings) {
+    const title = `${listing.title}`.toLowerCase();
+    const categoryName = title.includes('villa')
+      ? 'Villa'
+      : title.includes('bungalow')
+          ? 'Bungalow'
+          : title.includes('house')
+              ? 'House'
+              : 'Apartment';
+    const category = categoryMap.get(categoryName);
+    if (category) {
+      await db.ListingCategory.findOrCreate({
+        where: {
+          listing_id: listing.id,
+          property_category_id: category.id,
+        },
+        defaults: {
+          listing_id: listing.id,
+          property_category_id: category.id,
+        },
+      });
+    }
+
+    const featureValues = [
+      ['Bedroom', title.includes('villa') || title.includes('house') ? '4' : '2'],
+      ['Bathroom', title.includes('villa') || title.includes('house') ? '3' : '2'],
+      ['Area', title.includes('villa') ? '420 m2' : '180 m2'],
+    ];
+    for (const [featureName, value] of featureValues) {
+      const feature = featureMap.get(featureName);
+      if (!feature) continue;
+      const [row] = await db.ListingFeature.findOrCreate({
+        where: {
+          listing_id: listing.id,
+          property_feature_id: feature.id,
+        },
+        defaults: {
+          listing_id: listing.id,
+          property_feature_id: feature.id,
+          value,
+        },
+      });
+      if (row.value !== value) {
+        await row.update({ value });
+      }
+    }
+
+    for (const facilityName of ['Parking', 'WiFi', ...(title.includes('villa') ? ['Swimming Pool', 'Garden'] : [])]) {
+      const facility = facilityMap.get(facilityName);
+      if (!facility) continue;
+      const [row] = await db.ListingFacility.findOrCreate({
+        where: {
+          listing_id: listing.id,
+          facility_id: facility.id,
+        },
+        defaults: {
+          listing_id: listing.id,
+          facility_id: facility.id,
+          value: 'Available',
+        },
+      });
+      if (row.value !== 'Available') {
+        await row.update({ value: 'Available' });
+      }
+    }
+
+    for (const [placeName, value] of [['Hospital', '2 km'], ['School', '1.5 km'], ['Bus Stop', '300 m']]) {
+      const place = nearbyPlaceMap.get(placeName);
+      if (!place) continue;
+      const [row] = await db.ListingPlace.findOrCreate({
+        where: {
+          listing_id: listing.id,
+          nearby_place_id: place.id,
+        },
+        defaults: {
+          listing_id: listing.id,
+          nearby_place_id: place.id,
+          value,
+        },
+      });
+      if (row.value !== value) {
+        await row.update({ value });
+      }
+    }
+  }
 }
 
 async function seedFaqs() {
@@ -462,8 +612,8 @@ async function seedMongoMessages() {
   await mongoose.connect(mongoUri);
   try {
     // Keep participant IDs stable across reruns for idempotent seed behavior.
-    const participantA = new mongoose.Types.ObjectId('65a0000000000000000000a1');
-    const participantB = new mongoose.Types.ObjectId('65a0000000000000000000b2');
+    const participantA = '1';
+    const participantB = '2';
 
     let conversation = await Conversation.findOne({ listing_id: 'figma-seed-listing-1' });
     if (!conversation) {
@@ -525,6 +675,7 @@ async function run() {
     const userMap = await seedUsers();
     await seedLocations();
     const listings = await seedListings(userMap);
+    await seedListingMetadata(listings);
     await seedFaqs();
     await seedReviewsAndFavourites(userMap, listings);
     await seedNotificationsAndSearches(userMap, listings);

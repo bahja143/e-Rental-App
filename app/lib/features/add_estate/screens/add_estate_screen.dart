@@ -57,7 +57,8 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
 
   final _titleController = TextEditingController(text: 'The Lodge House');
   final _locationController = TextEditingController(
-    text: 'Jl. Cisangkuy, Citarum, Kec. Bandung Wetan, Kota Bandung, Jawa Barat 40115',
+    text:
+        'Jl. Cisangkuy, Citarum, Kec. Bandung Wetan, Kota Bandung, Jawa Barat 40115',
   );
   final _priceController = TextEditingController(text: '180000');
   final _sellPriceController = TextEditingController(text: '180000');
@@ -71,13 +72,19 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
   String _category = 'House';
   LatLng _selectedLatLng = _initialLatLng;
   final List<String> _imagePaths = <String>[];
+  final List<String> _videoPaths = <String>[];
   int _bedrooms = 3;
   int _bathrooms = 2;
   int _livingRooms = 2;
   int _kitchens = 2;
   int _numberOfFloors = 2;
   bool _isFinished = true;
-  final Set<String> _selectedAmenities = <String>{'Balcony', 'Parking Spaces', 'Swimming Pool', 'Gym'};
+  final Set<String> _selectedAmenities = <String>{
+    'Balcony',
+    'Parking Spaces',
+    'Swimming Pool',
+    'Gym'
+  };
   final Map<String, int> _nearbyPlaces = <String, int>{
     'Schools': 3,
     'Hospitals': 2,
@@ -114,7 +121,8 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
     if (_loadingEdit) {
       return const Scaffold(
         backgroundColor: Colors.white,
-        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        body:
+            Center(child: CircularProgressIndicator(color: AppColors.primary)),
       );
     }
     return Scaffold(
@@ -143,7 +151,8 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
                   ),
                 ),
                 Padding(
-                  padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + MediaQuery.of(context).padding.bottom),
+                  padding: EdgeInsets.fromLTRB(
+                      24, 0, 24, 24 + MediaQuery.of(context).padding.bottom),
                   child: _isEditMode
                       ? _PrimaryWizardButton(
                           label: _publishing ? 'Updating...' : 'Update',
@@ -158,7 +167,9 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
                             const SizedBox(width: 18),
                             Expanded(
                               child: _PrimaryWizardButton(
-                                label: _step == 3 ? (_publishing ? 'Publishing...' : 'Finish') : 'Next',
+                                label: _step == 3
+                                    ? (_publishing ? 'Publishing...' : 'Finish')
+                                    : 'Next',
                                 onTap: _publishing ? null : _handleNext,
                               ),
                             ),
@@ -183,9 +194,11 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
                   onPrimaryTap: _publishState == _AddEstatePublishState.success
                       ? () => context.go(AppRoutes.home)
                       : _retryPublish,
-                  onSecondaryTap: _publishState == _AddEstatePublishState.success
+                  onSecondaryTap: _publishState ==
+                          _AddEstatePublishState.success
                       ? _addMore
-                      : () => setState(() => _publishState = _AddEstatePublishState.none),
+                      : () => setState(
+                          () => _publishState = _AddEstatePublishState.none),
                 ),
               ),
           ],
@@ -207,7 +220,8 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
         _InputCard(
           controller: _titleController,
           hint: 'The Lodge House',
-          trailing: const Icon(Icons.home_outlined, color: AppColors.textPrimary),
+          trailing:
+              const Icon(Icons.home_outlined, color: AppColors.textPrimary),
         ),
         const SizedBox(height: 34),
         _SectionTitle('Listing type'),
@@ -260,7 +274,8 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
         _InputCard(
           controller: _titleController,
           hint: 'Schoolview House',
-          trailing: const Icon(Icons.home_outlined, color: AppColors.textPrimary),
+          trailing:
+              const Icon(Icons.home_outlined, color: AppColors.textPrimary),
         ),
         const SizedBox(height: 24),
         _SectionTitle('Listing type'),
@@ -308,37 +323,19 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
               ? const SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: AppColors.primary),
                 )
               : IconButton(
                   onPressed: _searchAddress,
-                  icon: const Icon(Icons.search_rounded, color: AppColors.textPrimary),
+                  icon: const Icon(Icons.search_rounded,
+                      color: AppColors.textPrimary),
                 ),
         ),
         const SizedBox(height: 12),
         _buildMapCard(height: 200),
         const SizedBox(height: 24),
-        _SectionTitle('Listing Photos'),
-        const SizedBox(height: 12),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: 4,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 159 / 161,
-          ),
-          itemBuilder: (context, index) {
-            final hasImage = index < _imagePaths.length;
-            return _PhotoTile(
-              imagePath: hasImage ? _imagePaths[index] : null,
-              onTap: () => _pickImage(index),
-              onRemove: hasImage ? () => _removeImage(index) : null,
-            );
-          },
-        ),
+        _buildMediaManager(sectionTitle: 'Listing Media'),
         const SizedBox(height: 24),
         _SectionTitle('Sell Price'),
         const SizedBox(height: 12),
@@ -348,7 +345,8 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
           keyboardType: TextInputType.number,
           trailing: const Padding(
             padding: EdgeInsets.only(right: 4),
-            child: Icon(Icons.attach_money_rounded, color: AppColors.textPrimary, size: 18),
+            child: Icon(Icons.attach_money_rounded,
+                color: AppColors.textPrimary, size: 18),
           ),
         ),
         const SizedBox(height: 24),
@@ -360,7 +358,8 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
           keyboardType: TextInputType.number,
           trailing: const Padding(
             padding: EdgeInsets.only(right: 4),
-            child: Icon(Icons.attach_money_rounded, color: AppColors.textPrimary, size: 18),
+            child: Icon(Icons.attach_money_rounded,
+                color: AppColors.textPrimary, size: 18),
           ),
         ),
         const SizedBox(height: 12),
@@ -477,7 +476,8 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
           _CounterInput(
             label: entry.key,
             value: entry.value,
-            onChanged: (value) => setState(() => _nearbyPlaces[entry.key] = value),
+            onChanged: (value) =>
+                setState(() => _nearbyPlaces[entry.key] = value),
           ),
           const SizedBox(height: 15),
         ],
@@ -487,11 +487,13 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
 
   Widget _buildEditPreviewCard() {
     final item = _editingItem;
-    final imagePath = _imagePaths.isNotEmpty
+    final mediaPath = _imagePaths.isNotEmpty
         ? _imagePaths.first
-        : (item?.imageUrl.trim().isNotEmpty ?? false)
-            ? item!.imageUrl
-            : null;
+        : _videoPaths.isNotEmpty
+            ? _videoPaths.first
+            : (item?.imageUrl.trim().isNotEmpty ?? false)
+                ? item!.imageUrl
+                : null;
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -505,7 +507,7 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
             child: SizedBox(
               width: 168,
               height: 104,
-              child: _ListingImage(imagePath: imagePath),
+              child: _ListingImage(imagePath: mediaPath),
             ),
           ),
           const SizedBox(width: 16),
@@ -514,7 +516,9 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _titleController.text.trim().isEmpty ? 'Listing' : _titleController.text.trim(),
+                  _titleController.text.trim().isEmpty
+                      ? 'Listing'
+                      : _titleController.text.trim(),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.lato(
@@ -528,7 +532,8 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Icon(Icons.star_rounded, size: 9, color: AppColors.primary),
+                    const Icon(Icons.star_rounded,
+                        size: 9, color: AppColors.primary),
                     const SizedBox(width: 2),
                     Text(
                       ((item?.rating) ?? 4.6).toStringAsFixed(1),
@@ -543,7 +548,8 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Icon(Icons.location_on_outlined, size: 9, color: AppColors.greyMedium),
+                    const Icon(Icons.location_on_outlined,
+                        size: 9, color: AppColors.greyMedium),
                     const SizedBox(width: 2),
                     Expanded(
                       child: Text(
@@ -578,12 +584,15 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
             color: AppColors.greySoft1,
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.location_on_outlined, color: AppColors.greyMedium),
+          child: const Icon(Icons.location_on_outlined,
+              color: AppColors.greyMedium),
         ),
         const SizedBox(width: 14),
         Expanded(
           child: Text(
-            _locationController.text.trim().isEmpty ? 'Tap the map or search an address.' : _locationController.text.trim(),
+            _locationController.text.trim().isEmpty
+                ? 'Tap the map or search an address.'
+                : _locationController.text.trim(),
             style: GoogleFonts.lato(
               fontSize: 12,
               fontWeight: FontWeight.w400,
@@ -605,7 +614,8 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
         child: Stack(
           children: [
             GoogleMap(
-              initialCameraPosition: CameraPosition(target: _selectedLatLng, zoom: 14),
+              initialCameraPosition:
+                  CameraPosition(target: _selectedLatLng, zoom: 14),
               onTap: _selectMapLocation,
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,
@@ -623,7 +633,8 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
               right: 0,
               bottom: 0,
               child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(25)),
+                borderRadius:
+                    const BorderRadius.vertical(bottom: Radius.circular(25)),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                   child: Container(
@@ -670,12 +681,15 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
                 color: AppColors.greySoft1,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.location_on_outlined, color: AppColors.greyMedium),
+              child: const Icon(Icons.location_on_outlined,
+                  color: AppColors.greyMedium),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
-                _locationController.text.trim().isEmpty ? 'Tap the map or search an address.' : _locationController.text.trim(),
+                _locationController.text.trim().isEmpty
+                    ? 'Tap the map or search an address.'
+                    : _locationController.text.trim(),
                 style: GoogleFonts.lato(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
@@ -695,11 +709,13 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
               ? const SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: AppColors.primary),
                 )
               : IconButton(
                   onPressed: _searchAddress,
-                  icon: const Icon(Icons.search_rounded, color: AppColors.textPrimary),
+                  icon: const Icon(Icons.search_rounded,
+                      color: AppColors.textPrimary),
                 ),
         ),
         const SizedBox(height: 18),
@@ -715,29 +731,11 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
       children: [
         _HeroTitle(
           normalText: 'Add ',
-          accentText: 'photos',
+          accentText: 'media',
           trailingText: ' to your\nlisting',
         ),
         const SizedBox(height: 34),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: 4,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 159 / 161,
-          ),
-          itemBuilder: (context, index) {
-            final hasImage = index < _imagePaths.length;
-            return _PhotoTile(
-              imagePath: hasImage ? _imagePaths[index] : null,
-              onTap: () => _pickImage(index),
-              onRemove: hasImage ? () => _removeImage(index) : null,
-            );
-          },
-        ),
+        _buildMediaManager(),
       ],
     );
   }
@@ -761,16 +759,25 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
           keyboardType: TextInputType.number,
           trailing: const Padding(
             padding: EdgeInsets.only(right: 4),
-            child: Icon(Icons.attach_money_rounded, color: AppColors.textPrimary, size: 18),
+            child: Icon(Icons.attach_money_rounded,
+                color: AppColors.textPrimary, size: 18),
           ),
         ),
         if (_listingType == 'rent') ...[
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
-            children: const [
-              _StaticChoiceChip(label: 'Monthly', active: true),
-              _StaticChoiceChip(label: 'Yearly'),
+            children: [
+              _ChoiceChipButton(
+                label: 'Monthly',
+                active: _rentPeriod == 'monthly',
+                onTap: () => setState(() => _rentPeriod = 'monthly'),
+              ),
+              _ChoiceChipButton(
+                label: 'Yearly',
+                active: _rentPeriod == 'yearly',
+                onTap: () => setState(() => _rentPeriod = 'yearly'),
+              ),
             ],
           ),
         ],
@@ -872,7 +879,8 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
           _CounterInput(
             label: entry.key,
             value: entry.value,
-            onChanged: (value) => setState(() => _nearbyPlaces[entry.key] = value),
+            onChanged: (value) =>
+                setState(() => _nearbyPlaces[entry.key] = value),
           ),
           const SizedBox(height: 15),
         ],
@@ -917,8 +925,8 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
         setState(() => _step = 2);
         return;
       case 2:
-        if (_imagePaths.length < 3) {
-          _showSnack('Please add at least 3 photos.');
+        if (_totalMediaCount < 1) {
+          _showSnack('Please add at least 1 photo or video.');
           return;
         }
         setState(() => _step = 3);
@@ -932,17 +940,23 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
     final query = _locationController.text.trim();
     if (query.isEmpty) return;
     setState(() => _lookingUpAddress = true);
-    final place = await GoogleGeocodingClient.geocodeAddress(query);
-    if (!mounted) return;
-    setState(() => _lookingUpAddress = false);
-    if (place == null) {
-      _showSnack('Could not find that address.');
-      return;
+    try {
+      final place = await GoogleGeocodingClient.geocodeAddress(query);
+      if (!mounted) return;
+      setState(() => _lookingUpAddress = false);
+      if (place == null) {
+        _showSnack('Could not find that address.');
+        return;
+      }
+      setState(() {
+        _selectedLatLng = place.location;
+        _locationController.text = place.formattedAddress;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _lookingUpAddress = false);
+      _showSnack('Could not search that address right now.');
     }
-    setState(() {
-      _selectedLatLng = place.location;
-      _locationController.text = place.formattedAddress;
-    });
   }
 
   Future<void> _selectMapLocation(LatLng position) async {
@@ -950,46 +964,83 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
       _selectedLatLng = position;
       _lookingUpAddress = true;
     });
-    final address = await GoogleGeocodingClient.reverseGeocode(position);
-    if (!mounted) return;
-    setState(() {
-      _lookingUpAddress = false;
-      if (address != null && address.trim().isNotEmpty) {
-        _locationController.text = address.trim();
-      }
-    });
+    try {
+      final address = await GoogleGeocodingClient.reverseGeocode(position);
+      if (!mounted) return;
+      setState(() {
+        _lookingUpAddress = false;
+        if (address != null && address.trim().isNotEmpty) {
+          _locationController.text = address.trim();
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _lookingUpAddress = false);
+      _showSnack('Could not load the selected location.');
+    }
   }
 
-  Future<void> _pickImage(int index) async {
-    final image = await _imagePicker.pickImage(source: ImageSource.gallery, imageQuality: 85);
-    if (image == null) return;
-    setState(() {
-      if (index < _imagePaths.length) {
-        _imagePaths[index] = image.path;
-      } else {
+  Future<void> _pickImage() async {
+    try {
+      final image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1600,
+        maxHeight: 1600,
+      );
+      if (!mounted || image == null) return;
+      setState(() {
         _imagePaths.add(image.path);
-      }
-    });
+      });
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack('Could not open gallery image.');
+    }
+  }
+
+  Future<void> _pickVideo() async {
+    try {
+      final video = await _imagePicker.pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: const Duration(minutes: 5),
+      );
+      if (!mounted || video == null) return;
+      setState(() {
+        _videoPaths.add(video.path);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack('Could not open gallery video.');
+    }
   }
 
   void _removeImage(int index) {
+    if (index < 0 || index >= _imagePaths.length) return;
     setState(() => _imagePaths.removeAt(index));
   }
 
+  void _removeVideo(int index) {
+    if (index < 0 || index >= _videoPaths.length) return;
+    setState(() => _videoPaths.removeAt(index));
+  }
+
   Future<void> _publishEstate() async {
-    final price = double.tryParse(_priceController.text.trim().replaceAll(',', '')) ?? 0;
+    final price =
+        double.tryParse(_priceController.text.trim().replaceAll(',', '')) ?? 0;
     final floorArea = double.tryParse(_floorAreaController.text.trim());
-    final constructionYear = int.tryParse(_constructionYearController.text.trim());
+    final constructionYear =
+        int.tryParse(_constructionYearController.text.trim());
     final draft = EstateDraft(
       title: _titleController.text.trim(),
       description: _descriptionController.text.trim(),
       location: _locationController.text.trim(),
       pricePerMonth: price,
-      listingType: _listingType,
+      listingType: _listingType == 'rent' ? _rentPeriod : _listingType,
       category: _category,
       lat: _selectedLatLng.latitude,
       lng: _selectedLatLng.longitude,
       imagePaths: List<String>.from(_imagePaths),
+      videoPaths: List<String>.from(_videoPaths),
       bedrooms: _bedrooms,
       bathrooms: _bathrooms,
       livingRooms: _livingRooms,
@@ -1001,12 +1052,14 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
       amenities: _selectedAmenities.toList(),
       nearbyPlaces: Map<String, int>.from(_nearbyPlaces),
     );
-    if (draft.title.isEmpty || draft.location.isEmpty || draft.pricePerMonth <= 0) {
+    if (draft.title.isEmpty ||
+        draft.location.isEmpty ||
+        draft.pricePerMonth <= 0) {
       _showSnack('Please complete title, location, and price.');
       return;
     }
-    if (draft.imagePaths.length < 3) {
-      _showSnack('Please add at least 3 photos.');
+    if (draft.imagePaths.length + draft.videoPaths.length < 1) {
+      _showSnack('Please add at least 1 photo or video.');
       return;
     }
 
@@ -1015,7 +1068,8 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
     if (!mounted) return;
     setState(() {
       _publishing = false;
-      _publishState = ok ? _AddEstatePublishState.success : _AddEstatePublishState.error;
+      _publishState =
+          ok ? _AddEstatePublishState.success : _AddEstatePublishState.error;
     });
     if (ok) return;
   }
@@ -1030,30 +1084,92 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
     final id = widget.estateId?.trim() ?? '';
     if (id.isEmpty) return;
     setState(() => _loadingEdit = true);
-    final item = await EstateRepository().getEstateItemById(id);
-    if (!mounted) return;
-    if (item != null) {
-      _editingItem = item;
-      _titleController.text = item.title;
-      _locationController.text = item.location;
-      _category = item.displayCategory ?? _category;
-      _selectedLatLng = item.hasCoordinates ? LatLng(item.lat!, item.lng!) : _selectedLatLng;
-      _sellPriceController.text = item.price.toInt().toString();
-      _rentPriceController.text = item.price.toInt().toString();
-      _imagePaths
-        ..clear()
-        ..add(item.imageUrl);
+    try {
+      final estateRepository = EstateRepository();
+      final addEstateRepository = AddEstateRepository();
+      final results = await Future.wait<dynamic>([
+        estateRepository.getEstateById(id),
+        addEstateRepository.getListingPlaces(id),
+      ]);
+      if (!mounted) return;
+      final rawListing = results[0] as Map<String, dynamic>?;
+      final listingPlaces = results[1] as List<Map<String, dynamic>>;
+      if (rawListing != null) {
+        final imagePaths = _extractImagePaths(rawListing);
+        final videoPaths = _extractVideoPaths(rawListing);
+        final imagePath = imagePaths.isNotEmpty ? imagePaths.first : '';
+        final category = _extractListingCategory(rawListing);
+        final sellPrice = _readDouble(rawListing['sell_price']);
+        final rentPrice = _readDouble(rawListing['rent_price']);
+        final title = _readString(rawListing['title'], fallback: 'Listing');
+        final location = _readString(rawListing['address'], fallback: '');
+        final lat = _readNullableDouble(rawListing['lat']);
+        final lng = _readNullableDouble(rawListing['lng']);
+
+        setState(() {
+          _editingItem = EstateItem(
+            id: _readString(rawListing['id'], fallback: id),
+            title: title,
+            location: location,
+            price: sellPrice > 0 ? sellPrice : rentPrice,
+            imageUrl: imagePath,
+            category: category,
+            lat: lat,
+            lng: lng,
+          );
+          _titleController.text = title;
+          _locationController.text = location;
+          _descriptionController.text =
+              _readString(rawListing['description'], fallback: '');
+          _category = category;
+          if (lat != null && lng != null) {
+            _selectedLatLng = LatLng(lat, lng);
+          }
+          _listingType = sellPrice > 0 ? 'sell' : 'rent';
+          _rentPeriod =
+              _readString(rawListing['rent_type'], fallback: 'monthly')
+                          .toLowerCase() ==
+                      'yearly'
+                  ? 'yearly'
+                  : 'monthly';
+          _sellPriceController.text =
+              sellPrice > 0 ? sellPrice.round().toString() : '';
+          _rentPriceController.text =
+              rentPrice > 0 ? rentPrice.round().toString() : '';
+          _imagePaths
+            ..clear()
+            ..addAll(imagePaths);
+          _videoPaths
+            ..clear()
+            ..addAll(videoPaths);
+          _applyListingFeatures(rawListing['listingFeatures']);
+          _applyListingFacilities(rawListing['listingFacilities']);
+          _applyNearbyPlaces(listingPlaces);
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        _showSnack('Could not load this listing.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loadingEdit = false);
+      }
     }
-    setState(() => _loadingEdit = false);
   }
 
   Future<void> _updateEstateListing() async {
     final estateId = widget.estateId?.trim() ?? '';
     if (estateId.isEmpty) return;
-    final sellPrice = double.tryParse(_sellPriceController.text.trim().replaceAll(',', '')) ?? 0;
-    final rentPrice = double.tryParse(_rentPriceController.text.trim().replaceAll(',', '')) ?? 0;
+    final sellPrice =
+        double.tryParse(_sellPriceController.text.trim().replaceAll(',', '')) ??
+            0;
+    final rentPrice =
+        double.tryParse(_rentPriceController.text.trim().replaceAll(',', '')) ??
+            0;
     final floorArea = double.tryParse(_floorAreaController.text.trim());
-    final constructionYear = int.tryParse(_constructionYearController.text.trim());
+    final constructionYear =
+        int.tryParse(_constructionYearController.text.trim());
     final selectedPrice = _listingType == 'sell' ? sellPrice : rentPrice;
     final draft = EstateDraft(
       title: _titleController.text.trim(),
@@ -1065,6 +1181,7 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
       lat: _selectedLatLng.latitude,
       lng: _selectedLatLng.longitude,
       imagePaths: List<String>.from(_imagePaths),
+      videoPaths: List<String>.from(_videoPaths),
       bedrooms: _bedrooms,
       bathrooms: _bathrooms,
       livingRooms: _livingRooms,
@@ -1097,14 +1214,17 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
       _step = 0;
       _publishing = false;
       _titleController.text = 'The Lodge House';
-      _locationController.text = 'Jl. Cisangkuy, Citarum, Kec. Bandung Wetan, Kota Bandung, Jawa Barat 40115';
+      _locationController.text =
+          'Jl. Cisangkuy, Citarum, Kec. Bandung Wetan, Kota Bandung, Jawa Barat 40115';
       _priceController.text = '180000';
       _descriptionController.clear();
       _floorAreaController.text = '1200';
       _constructionYearController.clear();
       _imagePaths.clear();
+      _videoPaths.clear();
       _selectedLatLng = _initialLatLng;
       _listingType = 'rent';
+      _rentPeriod = 'monthly';
       _category = 'House';
       _bedrooms = 3;
       _bathrooms = 2;
@@ -1126,8 +1246,273 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
     });
   }
 
+  List<String> _extractImagePaths(Map<String, dynamic> rawListing) {
+    final images = rawListing['images'];
+    if (images is! List) return const <String>[];
+    return images
+        .map((image) => '$image'.trim())
+        .where((image) => image.isNotEmpty)
+        .cast<String>()
+        .toList();
+  }
+
+  List<String> _extractVideoPaths(Map<String, dynamic> rawListing) {
+    final videos = rawListing['videos'];
+    if (videos is! List) return const <String>[];
+    return videos
+        .map((video) => '$video'.trim())
+        .where((video) => video.isNotEmpty)
+        .cast<String>()
+        .toList();
+  }
+
+  String _extractListingCategory(Map<String, dynamic> rawListing) {
+    final propertyCategories = rawListing['propertyCategories'];
+    if (propertyCategories is List) {
+      for (final row in propertyCategories.whereType<Map<String, dynamic>>()) {
+        final name = _readString(row['name_en'],
+            fallback: _readString(row['name_so'], fallback: ''));
+        if (name.isNotEmpty) return name;
+      }
+    }
+
+    final listingTypes = rawListing['listingTypes'];
+    if (listingTypes is List) {
+      for (final row in listingTypes.whereType<Map<String, dynamic>>()) {
+        final name = _readString(row['name_en'],
+            fallback: _readString(row['name_so'], fallback: ''));
+        if (_categoryOptions.contains(name)) return name;
+      }
+    }
+
+    return _category;
+  }
+
+  void _applyListingFeatures(dynamic rawFeatures) {
+    _bedrooms = 0;
+    _bathrooms = 0;
+    _livingRooms = 0;
+    _kitchens = 0;
+    _numberOfFloors = 0;
+    _floorAreaController.clear();
+    _constructionYearController.clear();
+    _isFinished = true;
+
+    if (rawFeatures is! List) return;
+    for (final row in rawFeatures.whereType<Map<String, dynamic>>()) {
+      final propertyFeature = row['propertyFeature'];
+      if (propertyFeature is! Map<String, dynamic>) continue;
+      final name = _normalizeLabel(
+        _readString(propertyFeature['name_en'],
+            fallback: _readString(propertyFeature['name_so'], fallback: '')),
+      );
+      final value = _readString(row['value'], fallback: '');
+      final numericValue = _readInt(row['value']);
+
+      switch (name) {
+        case 'bedroom':
+        case 'bedrooms':
+          _bedrooms = numericValue;
+          break;
+        case 'bathroom':
+        case 'bathrooms':
+          _bathrooms = numericValue;
+          break;
+        case 'living room':
+        case 'living rooms':
+          _livingRooms = numericValue;
+          break;
+        case 'kitchen':
+        case 'kitchens':
+          _kitchens = numericValue;
+          break;
+        case 'number of floors':
+        case 'floors':
+        case 'stories':
+          _numberOfFloors = numericValue;
+          break;
+        case 'floor area':
+        case 'area':
+          _floorAreaController.text = value;
+          break;
+        case 'construction year':
+        case 'year built':
+          _constructionYearController.text =
+              numericValue > 0 ? '$numericValue' : value;
+          break;
+        case 'finish state':
+        case 'finished':
+        case 'status':
+          _isFinished = !_normalizeLabel(value).contains('unfinished');
+          break;
+      }
+    }
+  }
+
+  void _applyListingFacilities(dynamic rawFacilities) {
+    _selectedAmenities.clear();
+    if (rawFacilities is! List) return;
+    for (final row in rawFacilities.whereType<Map<String, dynamic>>()) {
+      final facility = row['facility'];
+      if (facility is! Map<String, dynamic>) continue;
+      final name = _normalizeLabel(
+        _readString(facility['name_en'],
+            fallback: _readString(facility['name_so'], fallback: '')),
+      );
+      final label = switch (name) {
+        'balcony' => 'Balcony',
+        'parking' || 'parking space' || 'parking spaces' => 'Parking Spaces',
+        'garden' => 'Garden',
+        'swimming pool' => 'Swimming Pool',
+        'gym' => 'Gym',
+        'cctv' => 'CCTV',
+        'elevator' => 'Elevator',
+        'pet friendly' => 'Pet Friendly',
+        _ => null,
+      };
+      if (label != null) {
+        _selectedAmenities.add(label);
+      }
+    }
+  }
+
+  void _applyNearbyPlaces(List<Map<String, dynamic>> listingPlaces) {
+    _nearbyPlaces
+      ..clear()
+      ..addAll(<String, int>{
+        'Schools': 0,
+        'Hospitals': 0,
+        'Shopping Malls': 0,
+        'Gas Stations': 0,
+      });
+
+    for (final row in listingPlaces) {
+      final nearbyPlace = row['nearbyPlace'];
+      if (nearbyPlace is! Map<String, dynamic>) continue;
+      final name = _normalizeLabel(
+        _readString(nearbyPlace['name_en'],
+            fallback: _readString(nearbyPlace['name_so'], fallback: '')),
+      );
+      final label = switch (name) {
+        'school' || 'schools' => 'Schools',
+        'hospital' || 'hospitals' => 'Hospitals',
+        'shopping mall' ||
+        'shopping malls' ||
+        'mall' ||
+        'malls' =>
+          'Shopping Malls',
+        'gas station' || 'gas stations' => 'Gas Stations',
+        _ => null,
+      };
+      if (label != null) {
+        _nearbyPlaces[label] = _readInt(row['value']);
+      }
+    }
+  }
+
+  String _readString(dynamic value, {required String fallback}) {
+    final text = '$value'.trim();
+    return text.isEmpty || text == 'null' ? fallback : text;
+  }
+
+  double _readDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse('$value') ?? 0;
+  }
+
+  double? _readNullableDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse('$value');
+  }
+
+  int _readInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.round();
+    return (double.tryParse('$value') ?? 0).round();
+  }
+
+  String _normalizeLabel(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll('&', 'and')
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .trim();
+  }
+
+  int get _totalMediaCount => _imagePaths.length + _videoPaths.length;
+
+  Widget _buildMediaManager({String? sectionTitle}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (sectionTitle != null) ...[
+          _SectionTitle(sectionTitle),
+          const SizedBox(height: 12),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _pickImage,
+                icon: const Icon(Icons.image_outlined),
+                label: const Text('Add Photo'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _pickVideo,
+                icon: const Icon(Icons.videocam_outlined),
+                label: const Text('Add Video'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_totalMediaCount == 0)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: AppColors.greySoft1,
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: Text(
+              'You can add unlimited photos and videos.',
+              style: GoogleFonts.lato(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppColors.greyMedium,
+                letterSpacing: 0.36,
+              ),
+            ),
+          )
+        else
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (var index = 0; index < _imagePaths.length; index += 1)
+                _MediaTile(
+                  mediaPath: _imagePaths[index],
+                  onRemove: () => _removeImage(index),
+                ),
+              for (var index = 0; index < _videoPaths.length; index += 1)
+                _MediaTile(
+                  mediaPath: _videoPaths[index],
+                  onRemove: () => _removeVideo(index),
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+
   void _showSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -1369,35 +1754,6 @@ class _ChoiceChipButton extends StatelessWidget {
   }
 }
 
-class _StaticChoiceChip extends StatelessWidget {
-  const _StaticChoiceChip({
-    required this.label,
-    this.active = false,
-  });
-
-  final String label;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: active ? AppColors.primaryBackground : AppColors.greySoft1,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.lato(
-          fontSize: 10,
-          fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-          color: active ? Colors.white : AppColors.greyMedium,
-        ),
-      ),
-    );
-  }
-}
-
 class _CounterInput extends StatelessWidget {
   const _CounterInput({
     required this.label,
@@ -1480,7 +1836,9 @@ class _StatusToggle extends StatelessWidget {
               color: active ? AppColors.primary : const Color(0xFFC0C2D3),
               borderRadius: BorderRadius.circular(4),
             ),
-            child: active ? const Icon(Icons.check_rounded, size: 14, color: Colors.white) : null,
+            child: active
+                ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
+                : null,
           ),
           const SizedBox(width: 8),
           Text(
@@ -1497,65 +1855,76 @@ class _StatusToggle extends StatelessWidget {
   }
 }
 
-class _PhotoTile extends StatelessWidget {
-  const _PhotoTile({
-    required this.imagePath,
-    required this.onTap,
+class _MediaTile extends StatelessWidget {
+  const _MediaTile({
+    required this.mediaPath,
     this.onRemove,
   });
 
-  final String? imagePath;
-  final VoidCallback onTap;
+  final String mediaPath;
   final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
-    final hasImage = imagePath != null && imagePath!.isNotEmpty;
+    final isVideo = mediaPath.toLowerCase().endsWith('.mp4') ||
+        mediaPath.toLowerCase().endsWith('.mov') ||
+        mediaPath.toLowerCase().endsWith('.webm') ||
+        mediaPath.toLowerCase().endsWith('.avi');
     return Material(
       color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(25),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: AppColors.greySoft1,
-            borderRadius: BorderRadius.circular(25),
-          ),
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(25),
-                  child: hasImage
-                      ? _ListingImage(imagePath: imagePath)
-                      : Center(
-                          child: Icon(
-                            Icons.add_rounded,
-                            size: 36,
-                            color: AppColors.textPrimary.withValues(alpha: 0.8),
-                          ),
-                        ),
-                ),
+      child: Ink(
+        width: 152,
+        height: 152,
+        decoration: BoxDecoration(
+          color: AppColors.greySoft1,
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(25),
+                child: _ListingImage(imagePath: mediaPath),
               ),
-              if (hasImage)
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: GestureDetector(
-                    onTap: onRemove,
-                    child: Container(
-                      width: 30,
-                      height: 30,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF7FB239),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.close_rounded, size: 16, color: Colors.white),
-                    ),
+            ),
+            Positioned(
+              left: 12,
+              bottom: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.58),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  isVideo ? 'Video' : 'Photo',
+                  style: GoogleFonts.lato(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    letterSpacing: 0.3,
                   ),
                 ),
-            ],
-          ),
+              ),
+            ),
+            Positioned(
+              top: 0,
+              right: 0,
+              child: GestureDetector(
+                onTap: onRemove,
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF7FB239),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close_rounded,
+                      size: 16, color: Colors.white),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1573,6 +1942,37 @@ class _ListingImage extends StatelessWidget {
     if (path.isEmpty) {
       return Container(color: AppColors.greySoft2);
     }
+    final isVideo = path.toLowerCase().endsWith('.mp4') ||
+        path.toLowerCase().endsWith('.mov') ||
+        path.toLowerCase().endsWith('.webm') ||
+        path.toLowerCase().endsWith('.avi');
+    if (isVideo) {
+      return Container(
+        color: AppColors.textSecondary.withValues(alpha: 0.12),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.play_circle_fill_rounded,
+                size: 42,
+                color: AppColors.textSecondary,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Video',
+                style: GoogleFonts.lato(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textSecondary,
+                  letterSpacing: 0.36,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     if (path.startsWith('http://') || path.startsWith('https://')) {
       return RemoteImage(
         url: path,
@@ -1583,6 +1983,9 @@ class _ListingImage extends StatelessWidget {
     return Image.file(
       File(path),
       fit: BoxFit.cover,
+      cacheWidth: 1600,
+      filterQuality: FilterQuality.low,
+      gaplessPlayback: true,
       errorBuilder: (_, __, ___) => Container(color: AppColors.greySoft2),
     );
   }
@@ -1607,7 +2010,8 @@ class _EditListingSuccessOverlay extends StatelessWidget {
           alignment: Alignment.bottomCenter,
           child: Container(
             width: double.infinity,
-            padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.of(context).padding.bottom),
+            padding: EdgeInsets.fromLTRB(
+                24, 24, 24, 24 + MediaQuery.of(context).padding.bottom),
             decoration: const BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(50)),
@@ -1674,7 +2078,8 @@ class _EditListingSuccessOverlay extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
                       elevation: 0,
                     ),
                     child: Text(
@@ -1721,7 +2126,8 @@ class _AddEstateResultOverlay extends StatelessWidget {
           alignment: Alignment.bottomCenter,
           child: Container(
             width: double.infinity,
-            padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.of(context).padding.bottom),
+            padding: EdgeInsets.fromLTRB(
+                24, 24, 24, 24 + MediaQuery.of(context).padding.bottom),
             decoration: const BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(50)),
@@ -1811,7 +2217,8 @@ class _AddEstateResultOverlay extends StatelessWidget {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.greySoft1,
                             foregroundColor: AppColors.textPrimary,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
                             elevation: 0,
                           ),
                           child: Text(
@@ -1834,7 +2241,8 @@ class _AddEstateResultOverlay extends StatelessWidget {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
                             elevation: 0,
                           ),
                           child: Text(
@@ -1982,7 +2390,8 @@ class _PrimaryWizardButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           elevation: 0,
         ),
         child: Text(

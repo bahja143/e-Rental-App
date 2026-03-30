@@ -11,55 +11,42 @@ class TransactionRepository {
   final ApiClient _apiClient;
 
   Future<BookingSummary> getBookingSummary({String? estateId}) async {
-    try {
-      final listing = await _resolveListing(estateId);
-      final me = await _currentUser();
-      if (listing == null) throw Exception('No listing found');
-
-      final dateRange = _defaultDateRange();
-      final rentType = _defaultRentTypeForListing(listing);
-      final quote = await _apiClient.getJson(
-        '/public/listings/${listing['id']}/rental-quote',
-        query: {
-          'start_date': dateRange.start.toIso8601String(),
-          'end_date': dateRange.end.toIso8601String(),
-          'rent_type': rentType,
-        },
-      );
-
-      final subtotal = _toDouble(quote['subtotal']);
-      final discount = _toDouble(quote['discount']);
-      final total = _toDouble(quote['total']);
-      final paymentLabel = await _defaultPaymentLabel(
-        userId: '${me?['id'] ?? ''}',
-        fallbackEmail: '${me?['email'] ?? ''}',
-      );
-
-      final summary = BookingSummary(
-        propertyTitle: '${listing['title'] ?? ''}'.trim().isEmpty ? 'Sky Dandelions Apartment' : '${listing['title'] ?? ''}',
-        location: '${listing['address'] ?? ''}'.trim().isEmpty ? 'Jakarta, Indonesia' : '${listing['address'] ?? ''}',
-        category: '${listing['category'] ?? 'Apartment'}',
-        imageUrl: _extractImageUrl(listing),
-        price: subtotal > 0 ? subtotal : _fallbackPrice(listing),
-        duration: _durationLabel(rentType),
-        discount: discount,
-        total: total > 0 ? total : (subtotal > 0 ? subtotal - discount : _fallbackPrice(listing)),
-        paymentLabel: paymentLabel,
-      );
-      return summary;
-    } catch (_) {
-      return const BookingSummary(
-        propertyTitle: 'Sky Dandelions Apartment',
-        location: 'Jakarta, Indonesia',
-        category: 'Apartment',
-        imageUrl: '',
-        price: 220,
-        duration: '2 month',
-        discount: 88,
-        total: 31250,
-        paymentLabel: '••••••an@email.com',
-      );
+    final listing = await _resolveListing(estateId);
+    final me = await _currentUser();
+    if (listing == null) {
+      throw Exception('No listing found');
     }
+
+    final dateRange = _defaultDateRange();
+    final rentType = _defaultRentTypeForListing(listing);
+    final quote = await _apiClient.getJson(
+      '/public/listings/${listing['id']}/rental-quote',
+      query: {
+        'start_date': dateRange.start.toIso8601String(),
+        'end_date': dateRange.end.toIso8601String(),
+        'rent_type': rentType,
+      },
+    );
+
+    final subtotal = _toDouble(quote['subtotal']);
+    final discount = _toDouble(quote['discount']);
+    final total = _toDouble(quote['total']);
+    final paymentLabel = await _defaultPaymentLabel(
+      userId: '${me?['id'] ?? ''}',
+      fallbackEmail: '${me?['email'] ?? ''}',
+    );
+
+    return BookingSummary(
+      propertyTitle: '${listing['title'] ?? ''}'.trim(),
+      location: '${listing['address'] ?? ''}'.trim(),
+      category: _listingCategory(listing),
+      imageUrl: _extractImageUrl(listing),
+      price: subtotal > 0 ? subtotal : _fallbackPrice(listing),
+      duration: _durationLabel(rentType),
+      discount: discount,
+      total: total > 0 ? total : (subtotal > 0 ? subtotal - discount : _fallbackPrice(listing)),
+      paymentLabel: paymentLabel,
+    );
   }
 
   Future<bool> confirmBooking({String? estateId}) async {
@@ -103,24 +90,16 @@ class TransactionRepository {
             .whereType<Map<String, dynamic>>()
             .map((raw) => _toHistoryItem(raw, currentUserId))
             .toList();
-        if (items.isNotEmpty) return items;
+        return items;
       }
     } catch (_) {}
-    return const [
-      TransactionHistoryItem(id: '1', title: 'Sell', dateLabel: '12-12-2025', amount: 5999, isIncome: true),
-      TransactionHistoryItem(id: '2', title: 'Ad Promotion', dateLabel: '12-12-2025', amount: 5.99, isIncome: false),
-      TransactionHistoryItem(id: '3', title: 'Rent', dateLabel: '12-12-2025', amount: 5999, isIncome: true),
-      TransactionHistoryItem(id: '4', title: 'Refunded', dateLabel: '12-12-2025', amount: 5.99, isIncome: false),
-    ];
+    return const <TransactionHistoryItem>[];
   }
 
   Future<TransactionDetailData> getTransactionDetail(String transactionId) async {
-    try {
-      final rental = await _apiClient.getJson('/listing-rentals/$transactionId');
-      return _toDetailData(rental);
-    } catch (_) {
-      return TransactionDetailData.fallback(transactionId);
-    }
+    final rental = await _apiClient.getJson('/listing-rentals/$transactionId');
+    final me = await _currentUser();
+    return _toDetailData(rental, me);
   }
 
   Future<bool> submitReview({
@@ -157,52 +136,67 @@ class TransactionRepository {
     String title = isOwner ? 'Rent' : 'Booking';
     if (status == 'cancelled') {
       title = 'Refunded';
-    } else if ('${raw['rent_type'] ?? ''}'.toLowerCase() == 'yearly') {
-      title = 'Sell';
     }
     return TransactionHistoryItem(
       id: '${raw['id'] ?? ''}',
       title: title,
       dateLabel: _formatHistoryDate(raw['createdAt'] ?? raw['date']),
-      amount: amount > 0 ? amount : 5999,
+      amount: amount,
       isIncome: isIncome,
+      hasDispute: status == 'cancelled' || status == 'refunded' || status == 'disputed',
     );
   }
 
-  TransactionDetailData _toDetailData(Map<String, dynamic> raw) {
+  TransactionDetailData _toDetailData(Map<String, dynamic> raw, Map<String, dynamic>? me) {
     final listing = raw['listing'] is Map<String, dynamic> ? raw['listing'] as Map<String, dynamic> : const <String, dynamic>{};
     final renter = raw['renter'] is Map<String, dynamic> ? raw['renter'] as Map<String, dynamic> : const <String, dynamic>{};
+    final seller = listing['user'] is Map<String, dynamic> ? listing['user'] as Map<String, dynamic> : const <String, dynamic>{};
     final status = '${raw['status'] ?? ''}'.toLowerCase();
+    final location = '${listing['address'] ?? ''}'.trim();
+    const issueOptions = [
+      'Property not handed over',
+      'Documents not received',
+      'Property doesn\'t match description',
+      'Seller unresponsive',
+      'Other (describe below)',
+    ];
+    final sellerName = '${seller['name'] ?? ''}'.trim();
+    final buyerName = '${renter['name'] ?? me?['name'] ?? ''}'.trim();
+    final hasDispute = status == 'cancelled' || status == 'refunded' || status == 'disputed';
     return TransactionDetailData(
       id: '${raw['id'] ?? ''}',
       listingId: '${listing['id'] ?? ''}',
-      propertyTitle: '${listing['title'] ?? ''}'.trim().isEmpty ? 'Sky Dandelions Apartment' : '${listing['title'] ?? ''}',
-      location: '${listing['address'] ?? ''}'.trim().isEmpty ? 'Jakarta, Indonesia' : '${listing['address'] ?? ''}',
-      category: '${listing['category'] ?? 'Apartment'}',
+      propertyTitle: '${listing['title'] ?? ''}'.trim(),
+      location: location,
+      category: _listingCategory(listing),
       imageUrl: _extractImageUrl(listing),
       statusLabel: _statusLabel(status),
       statusAccentValue: status == 'cancelled' ? 0xFFE71704 : 0xFFE7B904,
-      sellerName: '${renter['name'] ?? listing['owner_name'] ?? 'Amanda'}',
-      sellerAvatarUrl: '${renter['profile_picture_url'] ?? ''}',
-      sellerRating: 5,
-      sellerSoldCount: 112,
+      sellerName: sellerName,
+      sellerAvatarUrl: '${seller['profile_picture_url'] ?? ''}',
+      sellerLocation: location,
+      sellerRating: 0,
+      sellerSoldCount: 0,
+      buyerName: buyerName,
+      buyerAvatarUrl: '${renter['profile_picture_url'] ?? me?['profile_picture_url'] ?? ''}',
+      buyerLocation: '${renter['address'] ?? renter['city'] ?? me?['address'] ?? me?['city'] ?? location}',
       checkInLabel: _formatDetailDate(raw['start_date']),
       checkOutLabel: _formatDetailDate(raw['end_date']),
-      ownerName: '${renter['name'] ?? 'Anderson'}',
+      ownerName: sellerName,
       transactionType: _capitalize('${raw['rent_type'] ?? 'Rent'}'),
       periodLabel: _durationLabel('${raw['rent_type'] ?? listing['rent_type'] ?? 'monthly'}'),
       monthlyPayment: _toDouble(raw['subtotal']) > 0 ? _toDouble(raw['subtotal']) : _toDouble(listing['rent_price']),
       discount: _toDouble(raw['discount']),
       total: _toDouble(raw['total']) > 0 ? _toDouble(raw['total']) : _toDouble(raw['subtotal']),
       paymentLabel: _paymentLabelFromRental(raw, renterEmail: '${renter['email'] ?? ''}'),
-      issueOptions: const [
-        'Property not handed over',
-        'Documents not received',
-        'Property doesn\'t match description',
-        'Seller unresponsive',
-        'Other (describe below)',
-      ],
-      canAddReview: status == 'completed' || status == 'confirmed' || status == 'pending',
+      issueOptions: issueOptions,
+      selectedIssue: '${raw['dispute_issue'] ?? ''}'.trim().isEmpty
+          ? issueOptions.first
+          : '${raw['dispute_issue'] ?? ''}',
+      disputeDescription: '${raw['dispute_description'] ?? ''}'.trim(),
+      evidenceUrls: _extractEvidenceUrls(raw, listing),
+      hasDispute: hasDispute,
+      canAddReview: !hasDispute && (status == 'completed' || status == 'confirmed'),
     );
   }
 
@@ -235,19 +229,20 @@ class TransactionRepository {
           final item = accounts.first;
           final bank = '${item['bank_name'] ?? ''}'.toLowerCase();
           if (bank.contains('paypal')) return _maskEmail(fallbackEmail);
-          return '•••• ${_last4('${item['account_no'] ?? ''}')}';
+          final accountNo = '${item['account_no'] ?? ''}';
+          return accountNo.isEmpty ? 'No payment method' : '•••• ${_last4(accountNo)}';
         }
       }
     } catch (_) {}
-    return _maskEmail(fallbackEmail.isEmpty ? 'an@email.com' : fallbackEmail);
+    return _maskEmail(fallbackEmail);
   }
 
   String _paymentLabelFromRental(Map<String, dynamic> raw, {required String renterEmail}) {
     final bankName = '${raw['bank_name'] ?? ''}'.toLowerCase();
-    if (bankName.contains('paypal')) return _maskEmail(renterEmail.isEmpty ? 'an@email.com' : renterEmail);
+    if (bankName.contains('paypal')) return _maskEmail(renterEmail);
     final bankAccount = '${raw['bank_account'] ?? ''}';
     if (bankAccount.isNotEmpty) return '•••• ${_last4(bankAccount)}';
-    return _maskEmail(renterEmail.isEmpty ? 'an@email.com' : renterEmail);
+    return _maskEmail(renterEmail);
   }
 
   Future<List<String>> _uploadImages(List<String> imagePaths) async {
@@ -310,11 +305,11 @@ class TransactionRepository {
   String _durationLabel(String rentType) {
     switch (rentType.toLowerCase()) {
       case 'daily':
-        return '30 days';
+        return 'Daily';
       case 'yearly':
-        return '1 year';
+        return 'Yearly';
       default:
-        return '2 month';
+        return 'Monthly';
     }
   }
 
@@ -342,6 +337,33 @@ class TransactionRepository {
     return '';
   }
 
+  List<String> _extractEvidenceUrls(Map<String, dynamic> raw, Map<String, dynamic> listing) {
+    final urls = <String>[];
+    for (final key in ['dispute_images', 'evidence_images', 'images']) {
+      final value = raw[key];
+      if (value is List) {
+        for (final item in value) {
+          final url = '$item'.trim();
+          if (url.isNotEmpty) urls.add(url);
+        }
+      }
+    }
+    final listingImages = listing['images'];
+    if (urls.isEmpty && listingImages is List) {
+      for (final item in listingImages.take(2)) {
+        final url = '$item'.trim();
+        if (url.isNotEmpty) urls.add(url);
+      }
+    }
+    if (urls.isEmpty) {
+      final image = _extractImageUrl(listing);
+      if (image.isNotEmpty) {
+        urls.add(image);
+      }
+    }
+    return urls.take(2).toList();
+  }
+
   String _statusLabel(String status) {
     switch (status) {
       case 'cancelled':
@@ -357,19 +379,19 @@ class TransactionRepository {
 
   String _formatHistoryDate(dynamic value) {
     final date = DateTime.tryParse('$value');
-    if (date == null) return '12-12-2025';
+    if (date == null) return '';
     return '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}';
   }
 
   String _formatDetailDate(dynamic value) {
     final date = DateTime.tryParse('$value');
-    if (date == null) return '11/28/2021';
+    if (date == null) return '';
     return '${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}/${date.year}';
   }
 
   String _maskEmail(String email) {
     final trimmed = email.trim();
-    if (!trimmed.contains('@')) return '•••• 4242';
+    if (!trimmed.contains('@')) return 'No payment method';
     final parts = trimmed.split('@');
     final name = parts.first;
     final domain = parts.last;
@@ -386,6 +408,20 @@ class TransactionRepository {
   String _capitalize(String value) {
     if (value.isEmpty) return value;
     return value[0].toUpperCase() + value.substring(1).toLowerCase();
+  }
+
+  String _listingCategory(Map<String, dynamic> listing) {
+    for (final key in ['propertyCategories', 'listingTypes']) {
+      final value = listing[key];
+      if (value is List && value.isNotEmpty) {
+        final first = value.first;
+        if (first is Map<String, dynamic>) {
+          final name = '${first['name_en'] ?? first['name_so'] ?? ''}'.trim();
+          if (name.isNotEmpty) return name;
+        }
+      }
+    }
+    return '';
   }
 }
 

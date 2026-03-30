@@ -300,6 +300,7 @@ const updateUser = async (req, res) => {
 
     const {
       name,
+      email,
       phone,
       city,
       lat,
@@ -334,6 +335,16 @@ const updateUser = async (req, res) => {
         return res.status(400).json({ error: 'Name must be 2-100 characters' });
       }
       updateData.name = name.trim();
+    }
+
+    if (email !== undefined) {
+      if (email === null) {
+        return res.status(400).json({ error: 'Valid email is required' });
+      }
+      if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        return res.status(400).json({ error: 'Valid email is required' });
+      }
+      updateData.email = email.trim().toLowerCase();
     }
 
     if (phone !== undefined) {

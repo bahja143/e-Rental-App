@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/bottom_nav_bar.dart';
+import '../../../shared/widgets/centered_header_bar.dart';
 import '../../../shared/widgets/remote_image.dart';
 import '../../home/data/models/estate_item.dart';
 import '../../home/data/repositories/estate_repository.dart';
@@ -11,7 +11,6 @@ import '../data/models/profile_user.dart';
 import '../data/repositories/profile_repository.dart';
 import '../utils/listing_performance_data.dart';
 import '../utils/profile_avatar_letter.dart';
-import '../widgets/listing_performance_sheet.dart';
 
 class PerformanceReportScreen extends StatefulWidget {
   const PerformanceReportScreen({super.key, this.estateId});
@@ -71,45 +70,10 @@ class _PerformanceReportScreenState extends State<PerformanceReportScreen> {
             return ListView(
               padding: const EdgeInsets.fromLTRB(24, 19, 24, 24),
               children: [
-                SizedBox(
-                  height: 50,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Text(
-                        'Performance Report',
-                        style: GoogleFonts.lato(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                          letterSpacing: 0.54,
-                        ),
-                      ),
-                      Positioned(
-                        left: 0,
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () => context.pop(),
-                            borderRadius: BorderRadius.circular(25),
-                            child: Container(
-                              width: 50,
-                              height: 50,
-                              decoration: const BoxDecoration(
-                                color: AppColors.greySoft1,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.arrow_back_ios_new_rounded,
-                                size: 18,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                const CenteredHeaderBar(
+                  title: 'Performance Report',
+                  titleSize: 18,
+                  titleSpacing: 0.54,
                 ),
                 const SizedBox(height: 20),
                 _ProfileMiniCard(profile: pageData.profile),
@@ -290,20 +254,23 @@ class _RangeToggle extends StatelessWidget {
       ),
       child: Row(
         children: [
-          for (final range in PerformanceRange.values)
+          for (var i = 0; i < PerformanceRange.values.length; i++) ...[
+            if (i > 0) const SizedBox(width: 6),
             Expanded(
               child: GestureDetector(
-                onTap: () => onSelected(range),
+                onTap: () => onSelected(PerformanceRange.values[i]),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   height: 50,
                   decoration: BoxDecoration(
-                    color: selected == range ? AppColors.primary : AppColors.primary.withValues(alpha: 0.35),
+                    color: selected == PerformanceRange.values[i]
+                        ? AppColors.primary
+                        : AppColors.primary.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(19),
                   ),
                   alignment: Alignment.center,
                   child: Text(
-                    range.label,
+                    PerformanceRange.values[i].label,
                     style: GoogleFonts.raleway(
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
@@ -313,6 +280,7 @@ class _RangeToggle extends StatelessWidget {
                 ),
               ),
             ),
+          ],
         ],
       ),
     );

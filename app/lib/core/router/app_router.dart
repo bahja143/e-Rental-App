@@ -24,6 +24,10 @@ import '../../features/profile/screens/edit_profile_screen.dart';
 import '../../features/profile/screens/profile_transaction_screen.dart';
 import '../../features/profile/screens/profile_all_reviews_screen.dart';
 import '../../features/profile/screens/performance_report_screen.dart';
+import '../../features/profile/screens/listing_plan_screen.dart';
+import '../../features/profile/screens/withdraw_balance_screen.dart';
+import '../../features/profile/screens/withdraw_summary_screen.dart';
+import '../../features/profile/screens/withdraw_success_screen.dart';
 import '../../features/account_setup/screens/user_setup_screen.dart';
 import '../../features/account_setup/screens/location_setup_screen.dart';
 import '../../features/account_setup/screens/intent_setup_screen.dart';
@@ -40,6 +44,7 @@ import '../../features/transaction/screens/transaction_summary_screen.dart';
 import '../../features/transaction/screens/booking_success_screen.dart';
 import '../../features/transaction/screens/transaction_history_screen.dart';
 import '../../features/transaction/screens/transaction_detail_screen.dart';
+import '../../features/transaction/screens/dispute_detail_screen.dart';
 import '../../features/transaction/screens/submit_review_screen.dart';
 import '../../features/add_estate/screens/add_estate_screen.dart';
 
@@ -174,12 +179,22 @@ GoRouter createAppRouter() {
       GoRoute(path: AppRoutes.editProfile, builder: (_, __) => const EditProfileScreen()),
       GoRoute(path: AppRoutes.profileTransaction, builder: (_, __) => const ProfileTransactionScreen()),
       GoRoute(path: AppRoutes.profileReviews, builder: (_, __) => const ProfileAllReviewsScreen()),
+      GoRoute(path: AppRoutes.listingPlan, builder: (_, __) => const ListingPlanScreen()),
       GoRoute(
         path: AppRoutes.performanceReport,
         builder: (_, state) => PerformanceReportScreen(
           estateId: state.uri.queryParameters['estateId'],
         ),
       ),
+      GoRoute(path: AppRoutes.withdrawBalance, builder: (_, __) => const WithdrawBalanceScreen()),
+      GoRoute(
+        path: AppRoutes.withdrawSummary,
+        builder: (_, state) => WithdrawSummaryScreen(
+          amount: state.uri.queryParameters['amount'] ?? '5000',
+          method: state.uri.queryParameters['method'] ?? 'paypal',
+        ),
+      ),
+      GoRoute(path: AppRoutes.withdrawSuccess, builder: (_, __) => const WithdrawSuccessScreen()),
       GoRoute(
         path: '${AppRoutes.estate}/:id/reviews',
         builder: (_, state) {
@@ -221,7 +236,7 @@ GoRouter createAppRouter() {
       GoRoute(path: AppRoutes.topAgents, builder: (_, __) => const TopAgentsScreen()),
       GoRoute(
         path: AppRoutes.messages,
-        builder: (_, __) => NotificationsScreen(initialTab: 'messages'),
+        builder: (_, __) => const NotificationsScreen(initialTab: 'messages'),
       ),
       GoRoute(
         path: '${AppRoutes.chat}/:id',
@@ -247,6 +262,12 @@ GoRouter createAppRouter() {
       GoRoute(
         path: '${AppRoutes.transactionDetail}/:id',
         builder: (_, state) => TransactionDetailScreen(
+          transactionId: state.pathParameters['id'] ?? '1',
+        ),
+      ),
+      GoRoute(
+        path: '${AppRoutes.transactionDispute}/:id',
+        builder: (_, state) => DisputeDetailScreen(
           transactionId: state.pathParameters['id'] ?? '1',
         ),
       ),

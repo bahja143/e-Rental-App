@@ -240,7 +240,7 @@ describe('Chat API', () => {
     it('should return conversations for a user', async () => {
       // Create a conversation
       const conv = new Conversation({
-        participants: [new mongoose.Types.ObjectId(user1Id), new mongoose.Types.ObjectId(user2Id)],
+        participants: [user1Id, user2Id],
         listing_id: testListing.id.toString(),
       });
       await conv.save();
@@ -292,7 +292,7 @@ describe('Chat API', () => {
 
     it('should return existing conversation if already exists', async () => {
       const existingConv = new Conversation({
-        participants: [new mongoose.Types.ObjectId(user1Id), new mongoose.Types.ObjectId(user2Id)],
+        participants: [user1Id, user2Id],
         listing_id: testListing.id.toString(),
       });
       await existingConv.save();
@@ -317,7 +317,7 @@ describe('Chat API', () => {
 
     beforeEach(async () => {
       conversation = new Conversation({
-        participants: [new mongoose.Types.ObjectId(user1Id), new mongoose.Types.ObjectId(user2Id)],
+        participants: [user1Id, user2Id],
         listing_id: testListing.id.toString(),
       });
       await conversation.save();
@@ -395,13 +395,13 @@ describe('Chat API', () => {
 
     beforeEach(async () => {
       const conversation = new Conversation({
-        participants: [new mongoose.Types.ObjectId(user1Id), new mongoose.Types.ObjectId(user2Id)],
+        participants: [user1Id, user2Id],
       });
       await conversation.save();
 
       message = new Message({
         conversation_id: conversation._id,
-        sender_id: new mongoose.Types.ObjectId(user1Id),
+        sender_id: user1Id,
         type: 'text',
         text: 'Original text',
       });
@@ -443,13 +443,13 @@ describe('Chat API', () => {
 
     beforeEach(async () => {
       const conversation = new Conversation({
-        participants: [new mongoose.Types.ObjectId(user1Id), new mongoose.Types.ObjectId(user2Id)],
+        participants: [user1Id, user2Id],
       });
       await conversation.save();
 
       message = new Message({
         conversation_id: conversation._id,
-        sender_id: new mongoose.Types.ObjectId(user1Id),
+        sender_id: user1Id,
         type: 'text',
         text: 'Test message',
       });
@@ -477,7 +477,7 @@ describe('Chat API', () => {
 
     it('should replace existing reaction', async () => {
       // Add initial reaction
-      message.reactions.push({ user_id: new mongoose.Types.ObjectId(user2Id), emoji: '😊' });
+      message.reactions.push({ user_id: user2Id, emoji: '😊' });
       await message.save();
 
       const reactionData = {
@@ -503,7 +503,7 @@ describe('Chat API', () => {
 
     beforeEach(async () => {
       conversation = new Conversation({
-        participants: [new mongoose.Types.ObjectId(user1Id), new mongoose.Types.ObjectId(user2Id)],
+        participants: [user1Id, user2Id],
         unread_counts: { [user1Id]: 5 },
       });
       await conversation.save();
@@ -533,7 +533,7 @@ describe('Chat API', () => {
 
     beforeEach(async () => {
       conversation = new Conversation({
-        participants: [new mongoose.Types.ObjectId(user1Id), new mongoose.Types.ObjectId(user2Id)],
+        participants: [user1Id, user2Id],
       });
       await conversation.save();
 
@@ -541,7 +541,7 @@ describe('Chat API', () => {
       for (let i = 0; i < 5; i++) {
         const msg = new Message({
           conversation_id: conversation._id,
-          sender_id: new mongoose.Types.ObjectId(user1Id),
+          sender_id: user1Id,
           type: 'text',
           text: `Message ${i}`,
           created_at: new Date(Date.now() - (5 - i) * 1000), // Descending order
@@ -578,7 +578,7 @@ describe('Chat API', () => {
   describe('GET /api/chat/listings/:id/conversation-count', () => {
     beforeEach(async () => {
       const conv = new Conversation({
-        participants: [new mongoose.Types.ObjectId(user1Id), new mongoose.Types.ObjectId(user2Id)],
+        participants: [user1Id, user2Id],
         listing_id: testListing.id.toString(),
       });
       await conv.save();
@@ -586,7 +586,7 @@ describe('Chat API', () => {
       const listingConv = new ListingConversation({
         listing_id: testListing.id.toString(),
         conversation_id: conv._id,
-        participants: [new mongoose.Types.ObjectId(user1Id), new mongoose.Types.ObjectId(user2Id)],
+        participants: [user1Id, user2Id],
       });
       await listingConv.save();
     });
@@ -604,7 +604,7 @@ describe('Chat API', () => {
   describe('GET /api/chat/listings/:id/daily-conversation-count', () => {
     beforeEach(async () => {
       const conv = new Conversation({
-        participants: [new mongoose.Types.ObjectId(user1Id), new mongoose.Types.ObjectId(user2Id)],
+        participants: [user1Id, user2Id],
         listing_id: testListing.id.toString(),
       });
       await conv.save();
@@ -612,7 +612,7 @@ describe('Chat API', () => {
       const listingConv = new ListingConversation({
         listing_id: testListing.id.toString(),
         conversation_id: conv._id,
-        participants: [new mongoose.Types.ObjectId(user1Id), new mongoose.Types.ObjectId(user2Id)],
+        participants: [user1Id, user2Id],
         created_at: new Date(),
       });
       await listingConv.save();

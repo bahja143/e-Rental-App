@@ -279,6 +279,7 @@ const createListing = async (req, res) => {
       lng,
       address,
       images,
+      videos,
       sell_price,
       rent_price,
       rent_type,
@@ -313,6 +314,9 @@ const createListing = async (req, res) => {
     if (images && !Array.isArray(images)) {
       return res.status(400).json({ error: 'images must be an array' });
     }
+    if (videos && !Array.isArray(videos)) {
+      return res.status(400).json({ error: 'videos must be an array' });
+    }
 
     const createData = {
       user_id: userId,
@@ -321,6 +325,7 @@ const createListing = async (req, res) => {
       lng: parseFloat(lng),
       address: sanitizedAddress,
       images: images || [],
+      videos: videos || [],
       sell_price: sell_price ? parseInt(sell_price) : null,
       rent_price: rent_price ? parseInt(rent_price) : null,
       rent_type,
@@ -350,6 +355,7 @@ const updateListing = async (req, res) => {
       lng,
       address,
       images,
+      videos,
       sell_price,
       rent_price,
       rent_type,
@@ -382,6 +388,9 @@ const updateListing = async (req, res) => {
     if (images && !Array.isArray(images)) {
       return res.status(400).json({ error: 'images must be an array' });
     }
+    if (videos && !Array.isArray(videos)) {
+      return res.status(400).json({ error: 'videos must be an array' });
+    }
 
     const updateData = {};
     if (sanitizedTitle) updateData.title = sanitizedTitle;
@@ -390,6 +399,7 @@ const updateListing = async (req, res) => {
     if (lng !== undefined) updateData.lng = parseFloat(lng);
     if (sanitizedAddress) updateData.address = sanitizedAddress;
     if (images !== undefined) updateData.images = images;
+    if (videos !== undefined) updateData.videos = videos;
     if (sell_price !== undefined) updateData.sell_price = sell_price ? parseInt(sell_price) : null;
     if (rent_price !== undefined) updateData.rent_price = rent_price ? parseInt(rent_price) : null;
     if (rent_type !== undefined) updateData.rent_type = rent_type;

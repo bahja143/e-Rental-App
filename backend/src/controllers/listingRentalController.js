@@ -1,7 +1,84 @@
-const { ListingRental, Listing, User, Coupon } = require('../models');
+const {
+  ListingRental,
+  Listing,
+  User,
+  Coupon,
+  PropertyCategory,
+  ListingFeature,
+  PropertyFeatures,
+  ListingFacility,
+  Facility,
+  ListingPlace,
+  NearbyPlace,
+} = require('../models');
 const { Op } = require('sequelize');
 const rentalService = require('../services/rentalService');
 const notificationService = require('../services/notificationService');
+
+const listingRentalInclude = (required = false) => ([
+  {
+    model: Listing,
+    as: 'listing',
+    attributes: [
+      'id',
+      'title',
+      'address',
+      'images',
+      'videos',
+      'rent_price',
+      'rent_type',
+      'sell_price',
+      'description',
+      'user_id',
+    ],
+    include: [
+      {
+        model: User,
+        as: 'user',
+        attributes: ['id', 'name', 'email', 'phone', 'city', 'profile_picture_url'],
+      },
+      {
+        model: PropertyCategory,
+        as: 'propertyCategories',
+        attributes: ['id', 'name_en', 'name_so'],
+        through: { attributes: [] },
+      },
+      {
+        model: ListingFeature,
+        as: 'listingFeatures',
+        attributes: ['id', 'value'],
+        include: [{
+          model: PropertyFeatures,
+          as: 'propertyFeature',
+          attributes: ['id', 'name_en', 'name_so', 'type'],
+        }],
+      },
+      {
+        model: ListingFacility,
+        as: 'listingFacilities',
+        attributes: ['id', 'value'],
+        include: [{
+          model: Facility,
+          as: 'facility',
+          attributes: ['id', 'name_en', 'name_so'],
+        }],
+      },
+      {
+        model: ListingPlace,
+        as: 'listingPlaces',
+        attributes: ['id', 'value'],
+        include: [{
+          model: NearbyPlace,
+          as: 'nearbyPlace',
+          attributes: ['id', 'name_en', 'name_so'],
+        }],
+      },
+    ],
+    required,
+  },
+  { model: User, as: 'renter', attributes: ['id', 'name', 'email', 'phone', 'city', 'profile_picture_url'] },
+  { model: Coupon, as: 'coupon', attributes: ['id', 'code', 'type', 'value'] },
+]);
 
 // Get all listing rentals with pagination, filtering, and related data
 // Non-admin users only see rentals they're involved in (as renter or listing owner)
@@ -102,16 +179,7 @@ const getListingRentals = async (req, res) => {
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
     const sortDirection = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-    const includeList = [
-      {
-        model: Listing,
-        as: 'listing',
-        attributes: ['id', 'title', 'address', 'rent_price', 'rent_type', 'user_id'],
-        required: !!whereClause[Op.or],
-      },
-      { model: User, as: 'renter', attributes: ['id', 'name', 'email', 'phone'] },
-      { model: Coupon, as: 'coupon', attributes: ['id', 'code', 'type', 'value'] },
-    ];
+    const includeList = listingRentalInclude(!!whereClause[Op.or]);
 
     const { count, rows: listingRentals } = await ListingRental.findAndCountAll({
       where: whereClause,
@@ -153,15 +221,7 @@ const getListingRentalById = async (req, res) => {
     }
 
     const listingRental = await ListingRental.findByPk(rentalId, {
-      include: [
-        {
-          model: Listing,
-          as: 'listing',
-          attributes: ['id', 'title', 'address', 'rent_price', 'rent_type', 'user_id'],
-        },
-        { model: User, as: 'renter', attributes: ['id', 'name', 'email', 'phone'] },
-        { model: Coupon, as: 'coupon', attributes: ['id', 'code', 'type', 'value'] },
-      ],
+      include: listingRentalInclude(false),
     });
 
     if (!listingRental) {
@@ -345,11 +405,7 @@ const createListingRental = async (req, res) => {
     }
 
     const createdRental = await ListingRental.findByPk(listingRental.id, {
-      include: [
-        { model: Listing, as: 'listing', attributes: ['id', 'title', 'address', 'rent_price', 'rent_type'] },
-        { model: User, as: 'renter', attributes: ['id', 'name', 'email', 'phone'] },
-        { model: Coupon, as: 'coupon', attributes: ['id', 'code', 'type', 'value'] },
-      ],
+      include: listingRentalInclude(false),
     });
 
     res.status(201).json({
@@ -608,23 +664,7 @@ const updateListingRental = async (req, res) => {
 
     // Fetch updated record with related data
     const updatedRental = await ListingRental.findByPk(rentalId, {
-      include: [
-        {
-          model: Listing,
-          as: 'listing',
-          attributes: ['id', 'title', 'address', 'rent_price', 'rent_type'],
-        },
-        {
-          model: User,
-          as: 'renter',
-          attributes: ['id', 'name', 'email', 'phone'],
-        },
-        {
-          model: Coupon,
-          as: 'coupon',
-          attributes: ['id', 'code', 'type', 'value'],
-        },
-      ],
+      include: listingRentalInclude(false),
     });
 
     res.json({

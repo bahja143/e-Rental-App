@@ -1,117 +1,163 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, Badge, Button, Col, Form, Modal, Pagination, Row, Spinner, Table } from 'react-bootstrap';
+import { createListing, deleteListing, getListings, updateListing } from '../../services/rentalApi';
 
-// react-bootstrap
-import { Row, Col, Table, Button, Spinner, Pagination, Modal, Form } from 'react-bootstrap';
+const initialForm = {
+  title: '',
+  address: '',
+  description: '',
+  lat: '',
+  lng: '',
+  rent_price: '',
+  sell_price: '',
+  rent_type: 'monthly',
+  availability: true,
+};
 
-// project import
-import { getListings, deleteListing, createListing } from '../../services/rentalApi';
-
-// ==============================|| LISTINGS LIST ||============================== //
+const parseBooleanAvailability = (value) => value === '1' || value === 1 || value === true;
 
 const ListingsList = () => {
-  const [listings, setListings] = useState([]);
+  const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ totalPages: 1, total: 0 });
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [search, setSearch] = useState('');
+  const [availability, setAvailability] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    title: '',
-    address: '',
-    description: '',
-    lat: '0',
-    lng: '0',
-    rent_price: '',
-    sell_price: '',
-    rent_type: 'daily',
-    availability: true
-  });
+  const [feedback, setFeedback] = useState({ error: '', success: '' });
+  const [form, setForm] = useState(initialForm);
 
   const resetForm = () => {
-    setForm({
-      title: '',
-      address: '',
-      description: '',
-      lat: '0',
-      lng: '0',
-      rent_price: '',
-      sell_price: '',
-      rent_type: 'daily',
-      availability: true
-    });
+    setEditing(null);
+    setForm(initialForm);
   };
 
-  const handleAddClose = () => {
-    setShowAddModal(false);
+  const loadRows = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = { page, limit: 10 };
+      if (search.trim()) params.search = search.trim();
+      if (availability) params.availability = availability;
+      const res = await getListings(params);
+      setRows(res.data?.data ?? []);
+      const p = res.data?.pagination ?? {};
+      setPagination({
+        totalPages: p.totalPages ?? 1,
+        total: p.total ?? 0,
+      });
+    } catch (err) {
+      console.error(err);
+      setFeedback({ error: err?.error || err?.message || 'Failed to load listings.', success: '' });
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, search, availability]);
+
+  useEffect(() => {
+    loadRows();
+  }, [loadRows]);
+
+  const openCreate = () => {
+    resetForm();
+    setShowModal(true);
+  };
+
+  const openEdit = (row) => {
+    setEditing(row);
+    setForm({
+      title: row.title ?? '',
+      address: row.address ?? '',
+      description: row.description ?? '',
+      lat: row.lat ?? '',
+      lng: row.lng ?? '',
+      rent_price: row.rent_price ?? '',
+      sell_price: row.sell_price ?? '',
+      rent_type: row.rent_type ?? 'monthly',
+      availability: parseBooleanAvailability(row.availability),
+    });
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
     resetForm();
   };
 
-  const handleFormChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setForm((f) => ({ ...f, [name]: type === 'checkbox' ? checked : value }));
+  const activePriceField = useMemo(() => (form.sell_price ? 'sell' : 'rent'), [form.sell_price]);
+
+  const handleFormChange = (key, value) => {
+    setForm((current) => ({ ...current, [key]: value }));
   };
 
-  const handleAddSubmit = async (e) => {
-    e.preventDefault();
+  const validateForm = () => {
+    if (!form.title.trim() || !form.address.trim()) {
+      return 'Title and address are required.';
+    }
+    if (form.lat === '' || form.lng === '') {
+      return 'Latitude and longitude are required.';
+    }
+    if (!form.rent_price && !form.sell_price) {
+      return 'Add a rent price or a sell price.';
+    }
+    return '';
+  };
+
+  const handleSave = async () => {
+    const validationError = validateForm();
+    if (validationError) {
+      setFeedback({ error: validationError, success: '' });
+      return;
+    }
+
     setSaving(true);
+    setFeedback({ error: '', success: '' });
     try {
-      await createListing({
-        title: form.title,
-        address: form.address,
-        description: form.description,
-        lat: parseFloat(form.lat) || 0,
-        lng: parseFloat(form.lng) || 0,
-        rent_price: form.rent_price ? parseInt(form.rent_price, 10) : null,
-        sell_price: form.sell_price ? parseInt(form.sell_price, 10) : null,
-        rent_type: form.rent_type,
-        availability: form.availability ? '1' : '2'
-      });
-      handleAddClose();
-      fetchListings();
+      const payload = {
+        title: form.title.trim(),
+        address: form.address.trim(),
+        description: form.description.trim(),
+        lat: parseFloat(form.lat),
+        lng: parseFloat(form.lng),
+        rent_price: form.rent_price === '' ? null : Number(form.rent_price),
+        sell_price: form.sell_price === '' ? null : Number(form.sell_price),
+        rent_type: form.sell_price ? null : form.rent_type,
+        availability: form.availability ? '1' : '2',
+      };
+
+      if (editing?.id) {
+        await updateListing(editing.id, payload);
+        setFeedback({ success: 'Listing updated.', error: '' });
+      } else {
+        await createListing(payload);
+        setFeedback({ success: 'Listing created.', error: '' });
+      }
+
+      closeModal();
+      loadRows();
     } catch (err) {
       console.error(err);
-      alert(err?.message ?? 'Create failed');
+      setFeedback({ error: err?.error || err?.message || 'Failed to save listing.', success: '' });
     } finally {
       setSaving(false);
     }
   };
 
-  const fetchListings = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await getListings({ page, limit: 10 });
-      const data = res.data?.data;
-      const p = res.data?.pagination ?? {};
-      setListings(Array.isArray(data) ? data : []);
-      setPagination({
-        totalPages: p.totalPages ?? 1,
-        total: p.total ?? 0
-      });
-    } catch (e) {
-      console.error(e);
-      setListings([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [page]);
-
-  useEffect(() => {
-    fetchListings();
-  }, [fetchListings]);
-
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this listing?')) return;
     try {
       await deleteListing(id);
-      fetchListings();
-    } catch (e) {
-      console.error(e);
-      alert(e?.message ?? 'Delete failed');
+      setFeedback({ success: 'Listing deleted.', error: '' });
+      loadRows();
+    } catch (err) {
+      console.error(err);
+      setFeedback({ error: err?.error || err?.message || 'Delete failed.', success: '' });
     }
   };
 
-  if (loading && listings.length === 0) {
+  if (loading && rows.length === 0) {
     return (
       <div className="rental-page">
         <div className="advanced-panel">
@@ -129,15 +175,44 @@ const ListingsList = () => {
       <div className="advanced-panel mb-0">
         <div className="advanced-panel-header">
           <h5>
-            <i className="feather icon-list me-2" />
+            <i className="feather icon-map-pin me-2" />
             Listings
           </h5>
-          <Button size="sm" variant="primary" onClick={() => setShowAddModal(true)}>
-            <i className="feather icon-plus me-1" />
-            Add Listing
-          </Button>
+          <div className="d-flex gap-2 flex-wrap">
+            <Form.Control
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              placeholder="Search title or address"
+              style={{ width: 220 }}
+            />
+            <Form.Select
+              value={availability}
+              onChange={(event) => {
+                setAvailability(event.target.value);
+                setPage(1);
+              }}
+              style={{ width: 150 }}
+            >
+              <option value="">All availability</option>
+              <option value="1">Available</option>
+              <option value="2">Unavailable</option>
+            </Form.Select>
+            <Button size="sm" variant="outline-primary" onClick={loadRows}>
+              Refresh
+            </Button>
+            <Button size="sm" variant="primary" onClick={openCreate}>
+              Add Listing
+            </Button>
+          </div>
         </div>
-        {listings.length === 0 ? (
+
+        {feedback.error && <Alert variant="danger">{feedback.error}</Alert>}
+        {feedback.success && <Alert variant="success">{feedback.success}</Alert>}
+
+        {rows.length === 0 ? (
           <p className="text-muted mb-0">No listings found.</p>
         ) : (
           <>
@@ -148,57 +223,53 @@ const ListingsList = () => {
                     <th>ID</th>
                     <th>Title</th>
                     <th>Address</th>
-                    <th>Rent Price</th>
-                    <th>Rent Type</th>
                     <th>Owner</th>
+                    <th>Mode</th>
+                    <th>Price</th>
                     <th>Availability</th>
-                    <th></th>
+                    <th className="text-end">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {listings.map((l) => (
-                    <tr key={l.id}>
-                      <td>{l.id}</td>
-                      <td className="fw-bold">{l.title}</td>
-                      <td>{l.address ?? '-'}</td>
-                      <td>${l.rent_price ?? l.sell_price ?? '-'}</td>
-                      <td>{l.rent_type ?? '-'}</td>
-                      <td>{l.user?.name ?? l.user_id}</td>
-                      <td>
-                        <span
-                          className={`badge ${
-                            l.availability === '1' || l.availability === 1 || l.availability === true
-                              ? 'bg-success'
-                              : 'bg-secondary'
-                          }`}
-                        >
-                          {l.availability === '1' || l.availability === 1 || l.availability === true ? 'Available' : 'Unavailable'}
-                        </span>
-                      </td>
-                      <td className="text-end">
-                        <Link
-                          to={`/app/rental/listings/${l.id}/edit`}
-                          className="btn btn-sm btn-outline-primary me-1"
-                          style={{ textDecoration: 'none' }}
-                        >
-                          Edit
-                        </Link>
-                        <Button size="sm" variant="outline-danger" onClick={() => handleDelete(l.id)}>
-                          Delete
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                  {rows.map((row) => {
+                    const hasSellPrice = Number(row.sell_price || 0) > 0;
+                    const priceLabel = hasSellPrice ? money(row.sell_price) : money(row.rent_price);
+                    const mode = hasSellPrice ? 'Sell' : `Rent / ${row.rent_type || 'monthly'}`;
+                    return (
+                      <tr key={row.id}>
+                        <td>{row.id}</td>
+                        <td className="fw-bold">{row.title}</td>
+                        <td>{row.address ?? '-'}</td>
+                        <td>{row.user?.name ?? row.user_id ?? '-'}</td>
+                        <td>{mode}</td>
+                        <td>{priceLabel}</td>
+                        <td>
+                          <Badge bg={parseBooleanAvailability(row.availability) ? 'success' : 'secondary'}>
+                            {parseBooleanAvailability(row.availability) ? 'Available' : 'Unavailable'}
+                          </Badge>
+                        </td>
+                        <td className="text-end">
+                          <Button size="sm" variant="outline-primary" className="me-2" onClick={() => openEdit(row)}>
+                            Edit
+                          </Button>
+                          <Button size="sm" variant="outline-danger" onClick={() => handleDelete(row.id)}>
+                            Delete
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </Table>
             </div>
+
             {pagination.totalPages > 1 && (
               <Pagination className="mt-3 mb-0 flex-wrap">
-                <Pagination.Prev disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} />
+                <Pagination.Prev disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} />
                 <Pagination.Item active>{page}</Pagination.Item>
                 <Pagination.Next
                   disabled={page >= pagination.totalPages}
-                  onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+                  onClick={() => setPage((current) => Math.min(pagination.totalPages, current + 1))}
                 />
               </Pagination>
             )}
@@ -206,104 +277,88 @@ const ListingsList = () => {
         )}
       </div>
 
-      <Modal show={showAddModal} onHide={handleAddClose} size="lg" centered className="rental-modal">
+      <Modal show={showModal} onHide={closeModal} size="lg" centered className="rental-modal">
         <Modal.Header closeButton className="rental-modal-header">
           <Modal.Title>
-            <i className="feather icon-plus-circle me-2" />
-            Add Listing
+            <i className="feather icon-edit-3 me-2" />
+            {editing ? 'Edit Listing' : 'Create Listing'}
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form onSubmit={handleAddSubmit}>
-            <Form.Group className="mb-3">
+          <Row className="g-3">
+            <Col md={12}>
               <Form.Label>Title</Form.Label>
-              <Form.Control name="title" value={form.title} onChange={handleFormChange} required placeholder="Listing title" />
-            </Form.Group>
-            <Form.Group className="mb-3">
+              <Form.Control value={form.title} onChange={(event) => handleFormChange('title', event.target.value)} />
+            </Col>
+            <Col md={12}>
               <Form.Label>Address</Form.Label>
-              <Form.Control name="address" value={form.address} onChange={handleFormChange} placeholder="Address" required />
-            </Form.Group>
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Latitude</Form.Label>
-                  <Form.Control type="number" step="any" name="lat" value={form.lat} onChange={handleFormChange} placeholder="0" required />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Longitude</Form.Label>
-                  <Form.Control type="number" step="any" name="lng" value={form.lng} onChange={handleFormChange} placeholder="0" required />
-                </Form.Group>
-              </Col>
-            </Row>
-            <Form.Group className="mb-3">
+              <Form.Control value={form.address} onChange={(event) => handleFormChange('address', event.target.value)} />
+            </Col>
+            <Col md={6}>
+              <Form.Label>Latitude</Form.Label>
+              <Form.Control type="number" step="any" value={form.lat} onChange={(event) => handleFormChange('lat', event.target.value)} />
+            </Col>
+            <Col md={6}>
+              <Form.Label>Longitude</Form.Label>
+              <Form.Control type="number" step="any" value={form.lng} onChange={(event) => handleFormChange('lng', event.target.value)} />
+            </Col>
+            <Col md={12}>
               <Form.Label>Description</Form.Label>
+              <Form.Control as="textarea" rows={4} value={form.description} onChange={(event) => handleFormChange('description', event.target.value)} />
+            </Col>
+            <Col md={6}>
+              <Form.Label>Rent Price</Form.Label>
               <Form.Control
-                as="textarea"
-                rows={3}
-                name="description"
-                value={form.description}
-                onChange={handleFormChange}
-                placeholder="Description"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.rent_price}
+                onChange={(event) => handleFormChange('rent_price', event.target.value)}
+                placeholder="Leave empty for sell-only"
               />
-            </Form.Group>
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Rent Price</Form.Label>
-                  <Form.Control
-                    type="number"
-                    step="0.01"
-                    name="rent_price"
-                    value={form.rent_price}
-                    onChange={handleFormChange}
-                    placeholder="0"
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Sell Price</Form.Label>
-                  <Form.Control
-                    type="number"
-                    step="0.01"
-                    name="sell_price"
-                    value={form.sell_price}
-                    onChange={handleFormChange}
-                    placeholder="0"
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-            <Form.Group className="mb-3">
+            </Col>
+            <Col md={6}>
+              <Form.Label>Sell Price</Form.Label>
+              <Form.Control
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.sell_price}
+                onChange={(event) => handleFormChange('sell_price', event.target.value)}
+                placeholder="Leave empty for rent-only"
+              />
+            </Col>
+            <Col md={6}>
               <Form.Label>Rent Type</Form.Label>
-              <Form.Control as="select" name="rent_type" value={form.rent_type} onChange={handleFormChange}>
+              <Form.Select
+                value={form.rent_type}
+                onChange={(event) => handleFormChange('rent_type', event.target.value)}
+                disabled={activePriceField === 'sell'}
+              >
                 <option value="daily">Daily</option>
                 <option value="monthly">Monthly</option>
                 <option value="yearly">Yearly</option>
-              </Form.Control>
-            </Form.Group>
-            <Form.Group className="mb-4">
-              <Form.Check type="checkbox" name="availability" label="Available" checked={form.availability} onChange={handleFormChange} />
-            </Form.Group>
-            <div className="d-flex justify-content-end gap-2">
-              <Button variant="secondary" onClick={handleAddClose}>
-                Cancel
-              </Button>
-              <Button variant="primary" type="submit" disabled={saving}>
-                {saving ? (
-                  <>
-                    <Spinner animation="border" size="sm" className="me-1" />
-                    Creating...
-                  </>
-                ) : (
-                  'Create'
-                )}
-              </Button>
-            </div>
-          </Form>
+              </Form.Select>
+            </Col>
+            <Col md={6} className="d-flex align-items-end">
+              <Form.Check
+                type="switch"
+                id="listing-availability"
+                label="Listing available"
+                checked={form.availability}
+                onChange={(event) => handleFormChange('availability', event.target.checked)}
+              />
+            </Col>
+          </Row>
         </Modal.Body>
+        <Modal.Footer>
+          <Button variant="outline-secondary" onClick={closeModal}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving...' : editing ? 'Update Listing' : 'Create Listing'}
+          </Button>
+        </Modal.Footer>
       </Modal>
     </div>
   );

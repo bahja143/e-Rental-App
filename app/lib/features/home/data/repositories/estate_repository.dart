@@ -1,7 +1,6 @@
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_session.dart';
 import '../models/estate_item.dart';
-import '../models/listing_review.dart';
 import '../models/top_agent_item.dart';
 import '../models/top_location_item.dart';
 
@@ -12,10 +11,8 @@ class EstateRepository {
   final ApiClient _apiClient;
 
   Future<List<EstateItem>> getSavedEstates() async {
-    var requestSucceeded = false;
     try {
       final favourites = await _apiClient.getJsonList('/favourites', query: {'limit': 50});
-      requestSucceeded = true;
       final listingIds = favourites
           .whereType<Map<String, dynamic>>()
           .map((fav) => fav['listing'])
@@ -42,11 +39,8 @@ class EstateRepository {
           .toList();
       if (estates.isNotEmpty) return estates;
       return const <EstateItem>[];
-    } catch (_) {
-      // Fallback keeps app usable while backend endpoint is being connected.
-    }
-    if (requestSucceeded) return const <EstateItem>[];
-    return _fallbackSavedEstates;
+    } catch (_) {}
+    return const <EstateItem>[];
   }
 
   Future<bool> removeSavedEstate(String listingId) async {
@@ -106,42 +100,30 @@ class EstateRepository {
   }
 
   Future<List<EstateItem>> getFeaturedEstates() async {
-    var requestSucceeded = false;
     try {
       final response = await _apiClient.getJsonList('/public/listings', query: {'limit': 20});
-      requestSucceeded = true;
       final estates = _parseEstates(response);
-      if (estates.isNotEmpty) return estates;
-      return const <EstateItem>[];
+      return estates;
     } catch (_) {}
-    if (requestSucceeded) return const <EstateItem>[];
-    return _fallbackFeaturedEstates;
+    return const <EstateItem>[];
   }
 
   Future<List<EstateItem>> getNearbyEstates() async {
-    var requestSucceeded = false;
     try {
       final response = await _apiClient.getJsonList('/public/listings', query: {'limit': 20});
-      requestSucceeded = true;
       final estates = _parseEstates(response);
-      if (estates.isNotEmpty) return estates;
-      return const <EstateItem>[];
+      return estates;
     } catch (_) {}
-    if (requestSucceeded) return const <EstateItem>[];
-    return _fallbackNearbyEstates;
+    return const <EstateItem>[];
   }
 
   Future<List<EstateItem>> searchEstates(String query) async {
-    var requestSucceeded = false;
     try {
       final response = await _apiClient.getJsonList('/public/listings', query: {'search': query, 'limit': 20});
-      requestSucceeded = true;
       final estates = _parseEstates(response);
-      if (estates.isNotEmpty) return estates;
-      return const <EstateItem>[];
+      return estates;
     } catch (_) {}
-    if (requestSucceeded) return const <EstateItem>[];
-    return _fallbackSearchEstates;
+    return const <EstateItem>[];
   }
 
   /// Public listings with optional search + price filters (server + local property type).
@@ -157,7 +139,6 @@ class EstateRepository {
     String propertyType = 'All',
   }) async {
     final s = search?.trim();
-    var requestSucceeded = false;
     try {
       final query = <String, dynamic>{'limit': limit};
       if (s != null && s.isNotEmpty) query['search'] = s;
@@ -173,34 +154,11 @@ class EstateRepository {
         if (b != null && b.isNotEmpty) query['sell_price_max'] = b;
       }
       final response = await _apiClient.getJsonList('/public/listings', query: query);
-      requestSucceeded = true;
       var estates = _parseEstates(response);
       estates = _filterByPropertyType(estates, propertyType);
-      if (estates.isNotEmpty) return estates;
-      return const <EstateItem>[];
+      return estates;
     } catch (_) {}
-    if (requestSucceeded) return const <EstateItem>[];
-    final merged = [..._fallbackNearbyEstates, ..._fallbackSearchEstates];
-    final byId = <String, EstateItem>{};
-    for (final e in merged) {
-      byId[e.id] = e;
-    }
-    var fallback = byId.values.toList();
-    fallback = _filterByPropertyType(fallback, propertyType);
-    fallback = _filterByPriceStrings(
-      fallback,
-      preferRent: preferRent,
-      minStr: preferRent ? rentPriceMin : sellPriceMin,
-      maxStr: preferRent ? rentPriceMax : sellPriceMax,
-    );
-    if (s != null && s.isNotEmpty) {
-      final q = s.toLowerCase();
-      fallback = fallback
-          .where((e) =>
-              e.title.toLowerCase().contains(q) || e.location.toLowerCase().contains(q))
-          .toList();
-    }
-    return fallback;
+    return const <EstateItem>[];
   }
 
   List<EstateItem> _filterByPropertyType(List<EstateItem> items, String propertyType) {
@@ -212,28 +170,9 @@ class EstateRepository {
     }).toList();
   }
 
-  List<EstateItem> _filterByPriceStrings(
-    List<EstateItem> items, {
-    required bool preferRent,
-    String? minStr,
-    String? maxStr,
-  }) {
-    final minV = int.tryParse(minStr?.trim() ?? '');
-    final maxV = int.tryParse(maxStr?.trim() ?? '');
-    if (minV == null && maxV == null) return items;
-    return items.where((e) {
-      final p = e.price.round();
-      if (minV != null && p < minV) return false;
-      if (maxV != null && p > maxV) return false;
-      return true;
-    }).toList();
-  }
-
   Future<List<TopLocationItem>> getTopLocations() async {
-    var requestSucceeded = false;
     try {
       final response = await _apiClient.getJsonList('/public/listings', query: {'limit': 40});
-      requestSucceeded = true;
       final byName = <String, TopLocationItem>{};
       for (final raw in response.whereType<Map<String, dynamic>>()) {
         final address = '${raw['address'] ?? ''}'.trim();
@@ -248,18 +187,14 @@ class EstateRepository {
         );
       }
       final locations = byName.values.toList();
-      if (locations.isNotEmpty) return locations;
-      return const <TopLocationItem>[];
+      return locations;
     } catch (_) {}
-    if (requestSucceeded) return const <TopLocationItem>[];
-    return _fallbackTopLocations;
+    return const <TopLocationItem>[];
   }
 
   Future<List<TopAgentItem>> getTopAgents() async {
-    var requestSucceeded = false;
     try {
       final response = await _apiClient.getJsonList('/public/listings', query: {'limit': 40});
-      requestSucceeded = true;
       final byId = <String, TopAgentItem>{};
       for (final raw in response.whereType<Map<String, dynamic>>()) {
         final user = raw['user'];
@@ -272,11 +207,9 @@ class EstateRepository {
         byId[id] = TopAgentItem(id: id, name: name, avatarUrl: avatarUrl);
       }
       final agents = byId.values.toList();
-      if (agents.isNotEmpty) return agents;
-      return const <TopAgentItem>[];
+      return agents;
     } catch (_) {}
-    if (requestSucceeded) return const <TopAgentItem>[];
-    return _fallbackTopAgents;
+    return const <TopAgentItem>[];
   }
 
   Future<Map<String, dynamic>?> getEstateById(String estateId) async {
@@ -305,27 +238,23 @@ class EstateRepository {
         query: {'listing_id': estateId, 'limit': 20},
       );
       final list = response.whereType<Map<String, dynamic>>().toList();
-      if (list.isNotEmpty) return list;
+      return list;
     } catch (_) {}
-    return ListingReview.mockJsonList(estateId);
+    return const <Map<String, dynamic>>[];
   }
 
   Future<List<EstateItem>> getNearbyFromEstate(String estateId) async {
-    var requestSucceeded = false;
     try {
       final response = await _apiClient.getJsonList('/public/listings', query: {'limit': 12});
-      requestSucceeded = true;
       final estates = response
           .whereType<Map<String, dynamic>>()
           .map(_toEstateItem)
           .where((e) => e.id.isNotEmpty && e.id != estateId)
           .take(4)
           .toList();
-      if (estates.isNotEmpty) return estates;
-      return const <EstateItem>[];
+      return estates;
     } catch (_) {}
-    if (requestSucceeded) return const <EstateItem>[];
-    return _fallbackNearbyEstates.take(4).toList();
+    return const <EstateItem>[];
   }
 
   List<EstateItem> _parseEstates(List<dynamic> response) {
@@ -394,122 +323,4 @@ class EstateRepository {
     }
     return address.trim();
   }
-
-  static const List<EstateItem> _fallbackSavedEstates = [
-    EstateItem(
-      id: '1',
-      title: 'Flower Heaven House',
-      location: 'Bali, Indonesia',
-      price: 370,
-      imageUrl: 'https://www.figma.com/api/mcp/asset/287cbe40-257d-4858-9e2e-9a8c01de893a',
-      rating: 4.7,
-    ),
-    EstateItem(
-      id: '2',
-      title: 'The Overdale Apartment',
-      location: 'Jakarta, Indonesia',
-      price: 290,
-      imageUrl: 'https://www.figma.com/api/mcp/asset/196009a7-dad1-47eb-a36b-015d44845b7a',
-      rating: 4.8,
-    ),
-    EstateItem(
-      id: '3',
-      title: 'Brookvale Villa',
-      location: 'Jakarta, Indonesia',
-      price: 320,
-      imageUrl: 'https://www.figma.com/api/mcp/asset/15855b80-c86c-4a44-8e3c-36edc38728ef',
-      rating: 5.0,
-    ),
-  ];
-
-  static const List<EstateItem> _fallbackFeaturedEstates = [
-    EstateItem(
-      id: '101',
-      title: 'Sky Dandelions Apartment',
-      location: 'Jakarta, Indonesia',
-      price: 290,
-      imageUrl: 'https://www.figma.com/api/mcp/asset/bde4e198-8bfa-4ef7-bb5e-3ae6c4a73592',
-      rating: 4.9,
-    ),
-    EstateItem(
-      id: '102',
-      title: 'Mill Sper House',
-      location: 'Jakarta, Indonesia',
-      price: 271,
-      imageUrl: 'https://www.figma.com/api/mcp/asset/405837a1-6d0e-46e5-9242-c160f4a48f09',
-      rating: 4.8,
-    ),
-  ];
-
-  static const List<EstateItem> _fallbackNearbyEstates = [
-    EstateItem(id: '201', title: 'Wings Tower', location: 'Jakarta, Indonesia', price: 220, imageUrl: 'https://www.figma.com/api/mcp/asset/bde4e198-8bfa-4ef7-bb5e-3ae6c4a73592', rating: 4.9, lat: -6.2088, lng: 106.8456),
-    EstateItem(id: '202', title: 'Mill Sper House', location: 'Jakarta, Indonesia', price: 271, imageUrl: 'https://www.figma.com/api/mcp/asset/405837a1-6d0e-46e5-9242-c160f4a48f09', rating: 4.8, lat: -6.2150, lng: 106.8380),
-    EstateItem(id: '203', title: 'Bridgeland Modern House', location: 'Semarang, Indonesia', price: 260, imageUrl: 'https://www.figma.com/api/mcp/asset/44749882-3416-4060-acc7-3e7953fdede5', rating: 4.7, lat: -6.9667, lng: 110.4167),
-    EstateItem(id: '204', title: 'Flower Heaven Apartment', location: 'Bali, Indonesia', price: 370, imageUrl: 'https://www.figma.com/api/mcp/asset/477bfe3b-5167-4a49-a126-134d593b70b5', rating: 4.9, lat: -8.4095, lng: 115.1889),
-  ];
-
-  static const List<EstateItem> _fallbackSearchEstates = [
-    EstateItem(id: '301', title: 'Bungalow House', location: 'Jakarta, Indonesia', price: 235, imageUrl: 'https://www.figma.com/api/mcp/asset/300aee5e-f567-4697-b22e-c21d4f650b05', rating: 4.7, lat: -6.2120, lng: 106.8520),
-    EstateItem(id: '302', title: 'Bridgeland Modern House', location: 'Semarang, Indonesia', price: 260, imageUrl: 'https://www.figma.com/api/mcp/asset/e4dc8313-46ee-4d2c-b641-00417db80d6c', rating: 4.9, lat: -6.9667, lng: 110.4167),
-    EstateItem(id: '303', title: 'Mill Sper House', location: 'Jakarta, Indonesia', price: 271, imageUrl: 'https://www.figma.com/api/mcp/asset/636ac4a4-a1a5-461a-8639-576a12397eae', rating: 4.8, lat: -6.2050, lng: 106.8400),
-    EstateItem(id: '304', title: 'Flower Heaven Apartment', location: 'Bali, Indonesia', price: 370, imageUrl: 'https://www.figma.com/api/mcp/asset/3515ef49-6b18-486e-823c-f26d397ebf4d', rating: 4.7, lat: -8.4095, lng: 115.1889),
-  ];
-
-  static const List<TopLocationItem> _fallbackTopLocations = [
-    TopLocationItem(
-      name: 'Bali',
-      avatarUrl: 'https://www.figma.com/api/mcp/asset/ec918139-6bd9-40dd-b319-ed690fc4a9f2',
-    ),
-    TopLocationItem(
-      name: 'Jakarta',
-      avatarUrl: 'https://www.figma.com/api/mcp/asset/14f407e0-9528-4af0-af3a-1426c7fe4b43',
-    ),
-    TopLocationItem(
-      name: 'Maldives',
-      avatarUrl: 'https://images.unsplash.com/photo-1514282401047-d79a71a590e8?w=400',
-    ),
-    TopLocationItem(
-      name: 'Semarang',
-      avatarUrl: 'https://images.unsplash.com/photo-1589320002388-f268473cfc44?w=400',
-    ),
-    TopLocationItem(
-      name: 'Yogyakarta',
-      avatarUrl: 'https://www.figma.com/api/mcp/asset/ef3cb24b-a64f-4cc2-8509-5ae33e6b000b',
-    ),
-  ];
-
-  static const List<TopAgentItem> _fallbackTopAgents = [
-    TopAgentItem(
-      id: 'a1',
-      name: 'Amanda',
-      avatarUrl: 'https://www.figma.com/api/mcp/asset/402afd5f-35ea-481d-a8fe-ba2d6f65e6e6',
-      rating: 5,
-      soldCount: 112,
-    ),
-    TopAgentItem(
-      id: 'a2',
-      name: 'Anderson',
-      avatarUrl: 'https://www.figma.com/api/mcp/asset/dbe2d095-4b7f-4e65-9331-b7f3ac5301af',
-    ),
-    TopAgentItem(
-      id: 'a3',
-      name: 'Samantha',
-      avatarUrl: 'https://www.figma.com/api/mcp/asset/3e5fccad-d890-4711-9064-45db6ddc7229',
-    ),
-    TopAgentItem(
-      id: 'a4',
-      name: 'Andrew',
-      avatarUrl: 'https://www.figma.com/api/mcp/asset/ade435f9-615c-4b22-8293-eb45b30823e1',
-    ),
-    TopAgentItem(
-      id: 'a5',
-      name: 'Michael',
-      avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400',
-    ),
-    TopAgentItem(
-      id: 'a6',
-      name: 'Tobi',
-      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400',
-    ),
-  ];
 }

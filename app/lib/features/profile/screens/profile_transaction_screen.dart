@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/bottom_nav_bar.dart';
+import '../../../shared/widgets/centered_header_bar.dart';
 import '../../../shared/widgets/remote_image.dart';
 import '../data/models/profile_user.dart';
 import '../data/repositories/profile_repository.dart';
@@ -24,12 +25,6 @@ class _ProfileTransactionScreenState extends State<ProfileTransactionScreen> {
   void initState() {
     super.initState();
     _profileFuture = ProfileRepository().getMyProfile();
-  }
-
-  void _showPending(String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$label is not available yet.')),
-    );
   }
 
   @override
@@ -53,45 +48,9 @@ class _ProfileTransactionScreenState extends State<ProfileTransactionScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    height: 50,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Text(
-                          'Profile',
-                          style: GoogleFonts.lato(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                            letterSpacing: 0.54,
-                          ),
-                        ),
-                        Positioned(
-                          left: 0,
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () => context.pop(),
-                              borderRadius: BorderRadius.circular(25),
-                              child: Container(
-                                width: 50,
-                                height: 50,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.greySoft1,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.arrow_back_ios_new_rounded,
-                                  size: 18,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                  const CenteredHeaderBar(
+                    title: 'Profile',
+                    titleSpacing: 0.42,
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -159,11 +118,11 @@ class _ProfileTransactionScreenState extends State<ProfileTransactionScreen> {
                   const Divider(color: AppColors.greySoft2, height: 1),
                   const SizedBox(height: 32),
                   _TransactionMenuItem(
-                    icon: Icons.dashboard_outlined,
+                    icon: Icons.grid_view_rounded,
                     title: 'Listing Plan',
                     subtitle: 'Starter Pack',
                     subtitleColor: AppColors.primary,
-                    onTap: () => _showPending('Listing plan'),
+                    onTap: () => context.push(AppRoutes.listingPlan),
                   ),
                   const SizedBox(height: 25),
                   _TransactionMenuItem(
@@ -173,9 +132,9 @@ class _ProfileTransactionScreenState extends State<ProfileTransactionScreen> {
                   ),
                   const SizedBox(height: 25),
                   _TransactionMenuItem(
-                    icon: Icons.payments_outlined,
+                    icon: Icons.account_balance_wallet_outlined,
                     title: 'Withdraw Balance',
-                    onTap: () => _showPending('Withdraw balance'),
+                    onTap: () => context.push(AppRoutes.withdrawBalance),
                   ),
                   const SizedBox(height: 25),
                   _TransactionMenuItem(

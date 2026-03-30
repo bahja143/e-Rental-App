@@ -1,9 +1,21 @@
 const { UserBankAccount, User } = require('../models');
 const { Op } = require('sequelize');
 
+const getRequester = (req) => ({
+  userId: parseInt(req.user?.userId ?? req.user?.id, 10) || null,
+  isAdmin: req.user?.role === 'admin',
+});
+
+const canAccessAccount = (account, req) => {
+  const { userId, isAdmin } = getRequester(req);
+  if (isAdmin) return true;
+  return userId != null && parseInt(account.user_id, 10) === userId;
+};
+
 // Get all user bank accounts with pagination, filtering, and sorting
 const getUserBankAccounts = async (req, res) => {
   try {
+    const { userId, isAdmin } = getRequester(req);
     const {
       page = 1,
       limit = 10,
@@ -35,7 +47,12 @@ const getUserBankAccounts = async (req, res) => {
       if (isNaN(userIdNum) || userIdNum < 1) {
         return res.status(400).json({ error: 'Invalid user_id' });
       }
+      if (!isAdmin && userIdNum !== userId) {
+        return res.status(403).json({ error: 'You can only access your own bank accounts' });
+      }
       whereClause.user_id = userIdNum;
+    } else if (!isAdmin && userId != null) {
+      whereClause.user_id = userId;
     }
 
     // Filter by bank_name with sanitization (escape SQL wildcards)
@@ -118,6 +135,9 @@ const getUserBankAccountById = async (req, res) => {
     if (!userBankAccount) {
       return res.status(404).json({ error: 'User bank account not found' });
     }
+    if (!canAccessAccount(userBankAccount, req)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
 
     res.json(userBankAccount);
   } catch (error) {
@@ -129,12 +149,16 @@ const getUserBankAccountById = async (req, res) => {
 // Create new user bank account
 const createUserBankAccount = async (req, res) => {
   try {
+    const { userId, isAdmin } = getRequester(req);
     const { user_id, bank_name, branch, account_no, account_holder_name, swift_code, is_default = false } = req.body;
 
     // Input validation
     const userIdNum = parseInt(user_id);
     if (isNaN(userIdNum) || userIdNum < 1) {
       return res.status(400).json({ error: 'Valid user_id is required' });
+    }
+    if (!isAdmin && userIdNum !== userId) {
+      return res.status(403).json({ error: 'You can only create bank accounts for yourself' });
     }
 
     // Validate required fields
@@ -146,8 +170,14 @@ const createUserBankAccount = async (req, res) => {
       return res.status(400).json({ error: 'Valid branch is required (2-100 characters)' });
     }
 
-    if (!account_no || typeof account_no !== 'string' || !/^[0-9\-]+$/.test(account_no) || account_no.length < 8 || account_no.length > 20) {
-      return res.status(400).json({ error: 'Valid account_no is required (8-20 characters, numbers and hyphens only)' });
+    if (
+      !account_no ||
+      typeof account_no !== 'string' ||
+      !/^[A-Za-z0-9@._-]+$/.test(account_no) ||
+      account_no.length < 3 ||
+      account_no.length > 120
+    ) {
+      return res.status(400).json({ error: 'Valid account_no is required (3-120 characters, letters, numbers, @ . _ - only)' });
     }
 
     if (!account_holder_name || typeof account_holder_name !== 'string' || account_holder_name.trim().length < 2 || account_holder_name.length > 100) {
@@ -234,6 +264,9 @@ const updateUserBankAccount = async (req, res) => {
     if (!userBankAccount) {
       return res.status(404).json({ error: 'User bank account not found' });
     }
+    if (!canAccessAccount(userBankAccount, req)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
 
     const updateData = {};
 
@@ -255,8 +288,13 @@ const updateUserBankAccount = async (req, res) => {
 
     // Validate and update account_no
     if (account_no !== undefined) {
-      if (typeof account_no !== 'string' || !/^[0-9\-]+$/.test(account_no) || account_no.length < 8 || account_no.length > 20) {
-        return res.status(400).json({ error: 'Invalid account_no (8-20 characters, numbers and hyphens only)' });
+      if (
+        typeof account_no !== 'string' ||
+        !/^[A-Za-z0-9@._-]+$/.test(account_no) ||
+        account_no.length < 3 ||
+        account_no.length > 120
+      ) {
+        return res.status(400).json({ error: 'Invalid account_no (3-120 characters, letters, numbers, @ . _ - only)' });
       }
 
       // Check if the new account number already exists (excluding current record)
@@ -350,6 +388,9 @@ const deleteUserBankAccount = async (req, res) => {
     const userBankAccount = await UserBankAccount.findByPk(accountId);
     if (!userBankAccount) {
       return res.status(404).json({ error: 'User bank account not found' });
+    }
+    if (!canAccessAccount(userBankAccount, req)) {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
     await userBankAccount.destroy();

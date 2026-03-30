@@ -40,6 +40,7 @@ const chatRoutes = require('./chat');
 const recentSearchesRoutes = require('./recentSearches');
 const publicListingsRoutes = require('./publicListings');
 const settingsRoutes = require('./settings');
+const adminReportsRoutes = require('./adminReports');
 
 // Mount routes
 router.use('/users', userRoutes);
@@ -80,6 +81,7 @@ router.use('/chat', chatRoutes);
 router.use('/recent-searches', recentSearchesRoutes);
 router.use('/public/listings', publicListingsRoutes);
 router.use('/settings', settingsRoutes);
+router.use('/admin/reports', adminReportsRoutes);
 
 // Default route
 router.get('/', (req, res) => {

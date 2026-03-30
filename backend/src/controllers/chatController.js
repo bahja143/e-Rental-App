@@ -7,16 +7,24 @@ const settingsService = require('../services/settingsService');
 const cacheService = require('../services/cacheService');
 const { mediaQueue, notificationQueue, dailyCountQueue } = require('../queues/chatQueue');
 
+const toUserKey = (value) => {
+  const raw = `${value ?? ''}`.trim();
+  return raw.length > 0 ? raw : null;
+};
+
 // Get all conversations for a user
 const getConversations = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = toUserKey(req.user?.userId ?? req.user?.id);
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
 
     // Try cache first
     let conversations = await cacheService.getCachedConversations(userId);
     if (!conversations) {
       conversations = await Conversation.find({
-        participants: new mongoose.Types.ObjectId(userId)
+        participants: userId,
       }).sort({ updated_at: -1 });
 
       // Cache the result
@@ -27,7 +35,7 @@ const getConversations = async (req, res) => {
     const serializedConversations = conversations.map(conv => ({
       ...conv.toObject(),
       _id: conv._id.toString(),
-      participants: conv.participants.map(p => p.toString())
+      participants: conv.participants.map(p => `${p}`)
     }));
 
     res.json(serializedConversations);
@@ -40,8 +48,16 @@ const getConversations = async (req, res) => {
 const createConversation = async (req, res) => {
   try {
     const { participants, listingId } = req.body;
+    if (!Array.isArray(participants) || participants.length < 2) {
+      return res.status(400).json({ error: 'At least two participants are required' });
+    }
 
-    const participantIds = participants.map(id => new mongoose.Types.ObjectId(id));
+    const participantIds = participants
+      .map(toUserKey)
+      .filter((id, index, arr) => id && arr.indexOf(id) === index);
+    if (participantIds.length < 2) {
+      return res.status(400).json({ error: 'At least two valid participants are required' });
+    }
 
     // Check if conversation already exists
     const existing = await Conversation.findOne({
@@ -51,10 +67,10 @@ const createConversation = async (req, res) => {
 
     if (existing) {
       const serializedExisting = {
-        ...existing.toObject(),
-        _id: existing._id.toString(),
-        participants: existing.participants.map(p => p.toString())
-      };
+      ...existing.toObject(),
+      _id: existing._id.toString(),
+      participants: existing.participants.map(p => `${p}`)
+    };
       return res.status(200).json(serializedExisting);
     }
 
@@ -79,7 +95,7 @@ const createConversation = async (req, res) => {
     const serializedConversation = {
       ...conversation.toObject(),
       _id: conversation._id.toString(),
-      participants: conversation.participants.map(p => p.toString())
+      participants: conversation.participants.map(p => `${p}`)
     };
 
     res.status(201).json(serializedConversation);
@@ -92,6 +108,10 @@ const createConversation = async (req, res) => {
 const sendMessage = async (req, res) => {
   try {
     const { conversationId, senderId, type, text, replyTo } = req.body;
+    const senderKey = toUserKey(senderId);
+    if (!senderKey) {
+      return res.status(400).json({ error: 'senderId is required' });
+    }
     let mediaUrl = null;
 
     // Handle media uploads
@@ -118,7 +138,7 @@ const sendMessage = async (req, res) => {
     // Create message
     const message = new Message({
       conversation_id: new mongoose.Types.ObjectId(conversationId),
-      sender_id: new mongoose.Types.ObjectId(senderId),
+      sender_id: senderKey,
       type,
       text: type === 'text' ? text : null,
       media_url: mediaUrl,
@@ -134,14 +154,17 @@ const sendMessage = async (req, res) => {
     if (!conversation) {
       return res.status(404).json({ error: 'Conversation not found' });
     }
-    const receiverId = conversation.participants.find(p => p.toString() !== senderId.toString());
+    const receiverId = conversation.participants.find(p => `${p}` !== senderKey);
+    if (!receiverId) {
+      return res.status(400).json({ error: 'Conversation must include another participant' });
+    }
 
     conversation.last_message = {
       text: type === 'text' ? text : `[${type}]`,
       type,
       created_at: new Date()
     };
-    conversation.unread_counts.set(receiverId.toString(), (conversation.unread_counts.get(receiverId.toString()) || 0) + 1);
+    conversation.unread_counts.set(`${receiverId}`, (conversation.unread_counts.get(`${receiverId}`) || 0) + 1);
     conversation.updated_at = new Date();
     await conversation.save();
 
@@ -153,18 +176,18 @@ const sendMessage = async (req, res) => {
     });
 
     // Invalidate cache for both participants
-    await cacheService.invalidateUserConversations(senderId);
-    await cacheService.invalidateUserConversations(receiverId.toString());
+    await cacheService.invalidateUserConversations(senderKey);
+    await cacheService.invalidateUserConversations(`${receiverId}`);
 
     const serializedMessage = {
       ...message.toObject(),
       _id: message._id.toString(),
       conversation_id: message.conversation_id.toString(),
-      sender_id: message.sender_id.toString(),
+      sender_id: `${message.sender_id}`,
       reply_to: message.reply_to ? message.reply_to.toString() : null,
       reactions: message.reactions.map(r => ({
         ...r,
-        user_id: r.user_id.toString()
+        user_id: `${r.user_id}`
       }))
     };
 
@@ -197,10 +220,10 @@ const editMessage = async (req, res) => {
       ...message.toObject(),
       _id: message._id.toString(),
       conversation_id: message.conversation_id.toString(),
-      sender_id: message.sender_id.toString(),
+      sender_id: `${message.sender_id}`,
       reply_to: message.reply_to ? message.reply_to.toString() : null,
       reactions: message.reactions.map(r => ({
-        user_id: r.user_id.toString(),
+        user_id: `${r.user_id}`,
         emoji: r.emoji
       }))
     };
@@ -223,9 +246,13 @@ const addReaction = async (req, res) => {
     }
 
     // Remove existing reaction if any
-    message.reactions = message.reactions.filter(r => r.user_id.toString() !== userId.toString());
+    const reactingUserId = toUserKey(userId);
+    if (!reactingUserId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+    message.reactions = message.reactions.filter(r => `${r.user_id}` !== reactingUserId);
     // Add new reaction
-    message.reactions.push({ user_id: new mongoose.Types.ObjectId(userId), emoji });
+    message.reactions.push({ user_id: reactingUserId, emoji });
 
     await message.save();
 
@@ -233,10 +260,10 @@ const addReaction = async (req, res) => {
       ...message.toObject(),
       _id: message._id.toString(),
       conversation_id: message.conversation_id.toString(),
-      sender_id: message.sender_id.toString(),
+      sender_id: `${message.sender_id}`,
       reply_to: message.reply_to ? message.reply_to.toString() : null,
       reactions: message.reactions.map(r => ({
-        user_id: r.user_id.toString(),
+        user_id: `${r.user_id}`,
         emoji: r.emoji
       }))
     };
@@ -252,13 +279,17 @@ const markAsRead = async (req, res) => {
   try {
     const { id } = req.params;
     const { userId } = req.body;
+    const userKey = toUserKey(userId);
+    if (!userKey) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
 
     const conversation = await Conversation.findById(new mongoose.Types.ObjectId(id));
     if (!conversation) {
       return res.status(404).json({ error: 'Conversation not found' });
     }
 
-    conversation.unread_counts.set(userId, 0);
+    conversation.unread_counts.set(userKey, 0);
     await conversation.save();
 
     res.json({ success: true });
@@ -293,10 +324,10 @@ const getMessages = async (req, res) => {
       ...msg.toObject(),
       _id: msg._id.toString(),
       conversation_id: msg.conversation_id.toString(),
-      sender_id: msg.sender_id.toString(),
+      sender_id: `${msg.sender_id}`,
       reply_to: msg.reply_to ? msg.reply_to.toString() : null,
       reactions: msg.reactions.map(r => ({
-        user_id: r.user_id.toString(),
+        user_id: `${r.user_id}`,
         emoji: r.emoji
       }))
     }));

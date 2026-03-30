@@ -7,8 +7,7 @@ const messageSchema = new mongoose.Schema({
     required: true
   },
   sender_id: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    type: String,
     required: true
   },
   type: {
@@ -37,8 +36,7 @@ const messageSchema = new mongoose.Schema({
   },
   reactions: [{
     user_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      type: String,
       required: true
     },
     emoji: {

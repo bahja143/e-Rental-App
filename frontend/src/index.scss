@@ -1074,3 +1074,36 @@ td {
 .rental-modal .modal-header.rental-modal-header .btn-close:hover {
   opacity: 1;
 }
+
+.hub-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #e9edf5;
+  border-radius: 16px;
+  padding: 22px;
+  height: 100%;
+  box-shadow: 0 10px 24px rgba(31, 76, 107, 0.06);
+}
+
+.hub-card-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 16px;
+  background: rgba(31, 76, 107, 0.08);
+  color: #e7b904;
+  font-size: 18px;
+}
+
+.hub-card h5 {
+  color: #1f4c6b;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.hub-card p {
+  color: #6f7691;
+  min-height: 48px;
+  margin-bottom: 18px;
+}

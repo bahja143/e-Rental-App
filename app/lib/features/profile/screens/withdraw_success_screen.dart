@@ -5,8 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 
-class BookingSuccessScreen extends StatelessWidget {
-  const BookingSuccessScreen({super.key});
+class WithdrawSuccessScreen extends StatelessWidget {
+  const WithdrawSuccessScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -91,7 +91,7 @@ class BookingSuccessScreen extends StatelessWidget {
                           elevation: 0,
                         ),
                         child: Text(
-                          'Continue Exploring',
+                          'Back to Home',
                           style: GoogleFonts.lato(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,

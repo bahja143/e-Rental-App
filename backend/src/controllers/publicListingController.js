@@ -144,7 +144,7 @@ const getPublicListings = async (req, res) => {
       order: [[validSort, sortDir]],
       include: includeList,
       attributes: [
-        'id', 'title', 'address', 'lat', 'lng', 'images', 'rent_price', 'rent_type',
+        'id', 'title', 'address', 'lat', 'lng', 'images', 'videos', 'rent_price', 'rent_type',
         'sell_price', 'description', 'availability', 'createdAt',
       ],
     });
@@ -176,7 +176,7 @@ const getPublicListingById = async (req, res) => {
 
     const listing = await Listing.findByPk(req.params.id, {
       include: includeList,
-      attributes: ['id', 'title', 'address', 'lat', 'lng', 'images', 'rent_price', 'rent_type', 'sell_price', 'description', 'availability', 'createdAt'],
+      attributes: ['id', 'title', 'address', 'lat', 'lng', 'images', 'videos', 'rent_price', 'rent_type', 'sell_price', 'description', 'availability', 'createdAt'],
     });
 
     if (!listing) {

@@ -69,18 +69,23 @@ const routes = [
       },
       {
         exact: 'true',
+        path: '/app/rental/catalog',
+        element: lazy(() => import('./views/rental/CatalogHub'))
+      },
+      {
+        exact: 'true',
+        path: '/app/rental/offers',
+        element: lazy(() => import('./views/rental/OffersHub'))
+      },
+      {
+        exact: 'true',
+        path: '/app/rental/reports',
+        element: lazy(() => import('./views/rental/ReportsHub'))
+      },
+      {
+        exact: 'true',
         path: '/app/rental/listings',
         element: lazy(() => import('./views/rental/ListingsList'))
-      },
-      {
-        exact: 'true',
-        path: '/app/rental/listings/new',
-        element: lazy(() => import('./views/rental/ListingForm'))
-      },
-      {
-        exact: 'true',
-        path: '/app/rental/listings/:id/edit',
-        element: lazy(() => import('./views/rental/ListingForm'))
       },
       {
         exact: 'true',
@@ -146,26 +151,6 @@ const routes = [
         exact: 'true',
         path: '/app/rental/settings',
         element: lazy(() => import('./views/rental/RentalSettings'))
-      },
-      {
-        exact: 'true',
-        path: '/app/rental/companies',
-        element: lazy(() => import('./views/rental/CompaniesManager'))
-      },
-      {
-        exact: 'true',
-        path: '/app/rental/user-bank-accounts',
-        element: lazy(() => import('./views/rental/UserBankAccountsManager'))
-      },
-      {
-        exact: 'true',
-        path: '/app/rental/user-devices',
-        element: lazy(() => import('./views/rental/UserDevicesManager'))
-      },
-      {
-        exact: 'true',
-        path: '/app/rental/withdraw-balances',
-        element: lazy(() => import('./views/rental/WithdrawBalancesManager'))
       },
       {
         path: '*',

@@ -69,6 +69,18 @@ module.exports = (sequelize) => {
         },
       },
     },
+    videos: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+      validate: {
+        isArray(value) {
+          if (!Array.isArray(value)) {
+            throw new Error('Videos must be an array');
+          }
+        },
+      },
+    },
     sell_price: {
       type: DataTypes.INTEGER,
       allowNull: true,

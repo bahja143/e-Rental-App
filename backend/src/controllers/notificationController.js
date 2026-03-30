@@ -2,9 +2,21 @@ const { Notification, User } = require('../models');
 const { Op } = require('sequelize');
 const notificationService = require('../services/notificationService');
 
+const getRequester = (req) => ({
+  userId: parseInt(req.user?.userId ?? req.user?.id, 10) || null,
+  isAdmin: req.user?.role === 'admin',
+});
+
+const ensureNotificationAccess = (notification, req) => {
+  const { userId, isAdmin } = getRequester(req);
+  if (isAdmin) return true;
+  return userId != null && parseInt(notification.user_id, 10) === userId;
+};
+
 // Get all notifications with pagination, filtering, and sorting
 const getNotifications = async (req, res) => {
   try {
+    const { userId, isAdmin } = getRequester(req);
     const {
       page = 1,
       limit = 10,
@@ -36,7 +48,12 @@ const getNotifications = async (req, res) => {
       if (isNaN(userIdNum) || userIdNum < 1) {
         return res.status(400).json({ error: 'Invalid user_id' });
       }
+      if (!isAdmin && userIdNum !== userId) {
+        return res.status(403).json({ error: 'You can only access your own notifications' });
+      }
       whereClause.user_id = userIdNum;
+    } else if (!isAdmin && userId != null) {
+      whereClause.user_id = userId;
     }
 
     // Type filter with sanitization
@@ -121,6 +138,9 @@ const getNotificationById = async (req, res) => {
     if (!notification) {
       return res.status(404).json({ error: 'Notification not found' });
     }
+    if (!ensureNotificationAccess(notification, req)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
 
     res.json(notification);
   } catch (error) {
@@ -132,12 +152,16 @@ const getNotificationById = async (req, res) => {
 // Create notification
 const createNotification = async (req, res) => {
   try {
+    const { userId, isAdmin } = getRequester(req);
     const { user_id, type, title, message, data } = req.body;
 
     // Input validation and sanitization
     const userIdNum = parseInt(user_id);
     if (isNaN(userIdNum) || userIdNum < 1) {
       return res.status(400).json({ error: 'Invalid user_id' });
+    }
+    if (!isAdmin && userIdNum !== userId) {
+      return res.status(403).json({ error: 'You can only create notifications for yourself' });
     }
 
     if (!type || typeof type !== 'string' || type.trim().length === 0 || type.length > 255) {
@@ -205,6 +229,9 @@ const updateNotification = async (req, res) => {
     const notification = await Notification.findByPk(notificationId);
     if (!notification) {
       return res.status(404).json({ error: 'Notification not found' });
+    }
+    if (!ensureNotificationAccess(notification, req)) {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
     const updateData = {};
@@ -291,6 +318,9 @@ const deleteNotification = async (req, res) => {
     const notification = await Notification.findByPk(notificationId);
     if (!notification) {
       return res.status(404).json({ error: 'Notification not found' });
+    }
+    if (!ensureNotificationAccess(notification, req)) {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
     await notification.destroy();

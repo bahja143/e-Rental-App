@@ -60,7 +60,7 @@ class ApiClient {
     }
   }
 
-  static const _imageMimeTypes = {
+  static const _fileMimeTypes = {
     'jpg': 'image/jpeg',
     'jpeg': 'image/jpeg',
     'png': 'image/png',
@@ -68,6 +68,10 @@ class ApiClient {
     'webp': 'image/webp',
     'heic': 'image/heic',
     'heif': 'image/heif',
+    'mp4': 'video/mp4',
+    'mov': 'video/quicktime',
+    'webm': 'video/webm',
+    'avi': 'video/x-msvideo',
   };
 
   Future<Map<String, dynamic>> postMultipartFile(
@@ -83,7 +87,7 @@ class ApiClient {
       request.headers['Authorization'] = 'Bearer ${ApiSession.bearerToken}';
     }
     final ext = file.path.split('.').last.toLowerCase();
-    final mimeType = _imageMimeTypes[ext] ?? 'image/jpeg';
+    final mimeType = _fileMimeTypes[ext] ?? 'application/octet-stream';
     request.files.add(await http.MultipartFile.fromPath(
       fieldName,
       file.path,

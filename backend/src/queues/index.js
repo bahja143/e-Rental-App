@@ -1,5 +1,20 @@
 const { Queue, Worker } = require('bullmq');
 
+if (process.env.NODE_ENV === 'test') {
+  const noop = async () => {};
+  module.exports = {
+    emailQueue: {
+      add: noop,
+      close: noop,
+    },
+    emailWorker: {
+      close: noop,
+      on: () => {},
+    },
+  };
+  return;
+}
+
 const redisConnection = {
   host: process.env.REDIS_HOST || 'redis',
   port: parseInt(process.env.REDIS_PORT || '6379', 10),

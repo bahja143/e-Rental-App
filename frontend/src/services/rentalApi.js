@@ -42,6 +42,7 @@ export const deleteNotification = (id) => api.delete(`/notifications/${id}`);
 // Company earnings
 export const getCompanyEarnings = (params = {}) => api.get('/company-earnings', { params });
 export const getCompanyEarningsSummary = () => api.get('/company-earnings/summary');
+export const getAdminOverview = (params = {}) => api.get('/admin/reports/overview', { params });
 
 // Coupons
 export const getCoupons = (params = {}) => api.get('/coupons', { params });

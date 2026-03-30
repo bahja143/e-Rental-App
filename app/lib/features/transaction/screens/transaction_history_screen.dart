@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/centered_header_bar.dart';
 import '../data/models/transaction_history_item.dart';
 import '../data/repositories/transaction_repository.dart';
 
@@ -63,7 +64,11 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                         final item = items[index];
                         return _HistoryTile(
                           item: item,
-                          onTap: () => context.push(AppRoutes.transactionDetailRoute(item.id)),
+                          onTap: () => context.push(
+                            item.hasDispute
+                                ? AppRoutes.transactionDisputeRoute(item.id)
+                                : AppRoutes.transactionDetailRoute(item.id),
+                          ),
                         );
                       },
                     ),
@@ -85,34 +90,11 @@ class _HistoryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 50,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Text(
-            'Transaction History',
-            style: GoogleFonts.lato(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          Positioned(
-            left: 0,
-            child: _HeaderCircleButton(
-              icon: Icons.arrow_back_ios_new_rounded,
-              onTap: () => context.pop(),
-            ),
-          ),
-          Positioned(
-            right: 0,
-            child: _HeaderCircleButton(
-              icon: Icons.history_toggle_off_rounded,
-              onTap: onRefresh,
-            ),
-          ),
-        ],
+    return CenteredHeaderBar(
+      title: 'Transaction History',
+      trailing: HeaderCircleButton(
+        icon: Icons.history_toggle_off_rounded,
+        onTap: onRefresh,
       ),
     );
   }
@@ -198,36 +180,3 @@ class _HistoryTile extends StatelessWidget {
   }
 }
 
-class _HeaderCircleButton extends StatelessWidget {
-  const _HeaderCircleButton({
-    required this.icon,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(25),
-        child: Container(
-          width: 50,
-          height: 50,
-          decoration: const BoxDecoration(
-            color: AppColors.greySoft1,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            color: AppColors.textPrimary,
-            size: 18,
-          ),
-        ),
-      ),
-    );
-  }
-}

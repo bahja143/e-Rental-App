@@ -9,10 +9,8 @@ class MessagesRepository {
   final ApiClient _apiClient;
 
   Future<List<ChatThread>> getThreads() async {
-    var requestSucceeded = false;
     try {
       final response = await _apiClient.getJsonList('/chat/conversations');
-      requestSucceeded = true;
       final rawThreads = response.whereType<Map<String, dynamic>>().toList();
       final threads = <ChatThread>[];
       for (final raw in rawThreads) {
@@ -21,32 +19,24 @@ class MessagesRepository {
           threads.add(mapped);
         }
       }
-      if (threads.isNotEmpty) return threads;
-      return const <ChatThread>[];
+      return threads;
     } catch (_) {
-      // Keep app usable when endpoint is unavailable.
+      return const <ChatThread>[];
     }
-    if (requestSucceeded) return const <ChatThread>[];
-    return _fallback;
   }
 
   Future<List<ChatMessage>> getConversation(String threadId) async {
-    var requestSucceeded = false;
     try {
       final response = await _apiClient.getJsonList('/chat/conversations/$threadId/messages');
-      requestSucceeded = true;
       final messages = response
           .whereType<Map<String, dynamic>>()
           .map(_toMessage)
           .where((e) => e.id.isNotEmpty && e.message.isNotEmpty)
           .toList();
-      if (messages.isNotEmpty) return messages;
-      return const <ChatMessage>[];
+      return messages;
     } catch (_) {
-      // Keep app usable when endpoint is unavailable.
+      return const <ChatMessage>[];
     }
-    if (requestSucceeded) return const <ChatMessage>[];
-    return _fallbackConversation;
   }
 
   Future<ChatThread> _toThread(Map<String, dynamic> json) async {
@@ -126,63 +116,4 @@ class MessagesRepository {
     final m = dateTime.minute.toString().padLeft(2, '0');
     return '$h:$m';
   }
-
-  static const List<ChatThread> _fallback = [
-    ChatThread(
-      id: '1',
-      name: 'Milano',
-      message: 'tempor incididunt ut labore et dolore',
-      time: '10.45',
-      unread: 1,
-    ),
-    ChatThread(
-      id: '2',
-      name: 'Samuel Ella',
-      message: 'Lorem ipsum dolor sit amet',
-      time: '11.00',
-      unread: 0,
-    ),
-    ChatThread(
-      id: '3',
-      name: 'Emmet Perry',
-      message: 'Excepteur sint occaecat cupidatat non',
-      time: '12.50',
-      unread: 0,
-    ),
-    ChatThread(
-      id: '4',
-      name: 'Walter Lindsey',
-      message: 'Quis nostrud exercitation ullamco',
-      time: '1 Day ago',
-      unread: 0,
-    ),
-    ChatThread(
-      id: '5',
-      name: 'Velma Cole',
-      message: 'Excepteur sint occaecat cupidatat non',
-      time: '2 Days ago',
-      unread: 0,
-    ),
-  ];
-
-  static const List<ChatMessage> _fallbackConversation = [
-    ChatMessage(
-      id: 'm1',
-      message: 'Hi! Is the apartment on 5th Street still available?',
-      time: '10:30',
-      isMe: false,
-    ),
-    ChatMessage(
-      id: 'm2',
-      message: 'Yes it is! Would you like to schedule a viewing?',
-      time: '10:32',
-      isMe: true,
-    ),
-    ChatMessage(
-      id: 'm3',
-      message: 'That would be great. How about tomorrow at 2pm?',
-      time: '10:35',
-      isMe: false,
-    ),
-  ];
 }

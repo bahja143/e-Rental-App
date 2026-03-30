@@ -39,8 +39,8 @@ module.exports = (sequelize) => {
       unique: true,
       validate: {
         notEmpty: true,
-        len: [8, 20], // Account numbers typically 8-20 characters
-        is: /^[0-9\-]+$/, // Allow numbers and hyphens
+        len: [3, 120],
+        is: /^[A-Za-z0-9@._-]+$/,
       },
     },
     account_holder_name: {

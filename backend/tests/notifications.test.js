@@ -23,6 +23,8 @@ jest.mock('../src/queues', () => ({
   },
 }));
 
+jest.setTimeout(20000);
+
 describe('Notifications API', () => {
   let app;
   let server;
@@ -101,6 +103,37 @@ describe('Notifications API', () => {
       expect(response.body.pagination.hasPrevPage).toBe(false);
     });
 
+    it('should only return the authenticated user notifications by default', async () => {
+      const user2 = await User.create({
+        name: 'User 2',
+        email: 'user2-default@example.com',
+        password: 'password123',
+        phone: '+252900000001',
+      });
+
+      await Notification.bulkCreate([
+        {
+          user_id: testUser.id,
+          type: 'booking',
+          title: 'Mine',
+          message: 'Visible to me',
+        },
+        {
+          user_id: user2.id,
+          type: 'booking',
+          title: 'Not mine',
+          message: 'Should be hidden',
+        },
+      ]);
+
+      const response = await request(app)
+        .get('/api/notifications')
+        .expect(200);
+
+      expect(response.body.data).toHaveLength(1);
+      expect(response.body.data[0].title).toBe('Mine');
+    });
+
     it('should filter notifications by user_id', async () => {
       const user2 = await User.create({
         name: 'User 2',
@@ -129,6 +162,21 @@ describe('Notifications API', () => {
 
       expect(response.body.data).toHaveLength(1);
       expect(response.body.data[0].type).toBe('booking');
+    });
+
+    it('should reject filtering another user notifications', async () => {
+      const user2 = await User.create({
+        name: 'User 3',
+        email: 'user3@example.com',
+        password: 'password123',
+        phone: '+252900000002',
+      });
+
+      const response = await request(app)
+        .get(`/api/notifications?user_id=${user2.id}`)
+        .expect(403);
+
+      expect(response.body.error).toBe('You can only access your own notifications');
     });
 
     it('should filter notifications by type', async () => {
@@ -271,6 +319,27 @@ describe('Notifications API', () => {
 
       expect(response.body.error).toBe('Invalid notification ID');
     });
+
+    it('should reject another user notification by id', async () => {
+      const user2 = await User.create({
+        name: 'User 4',
+        email: 'user4@example.com',
+        password: 'password123',
+        phone: '+252900000003',
+      });
+      const notification = await Notification.create({
+        user_id: user2.id,
+        type: 'booking',
+        title: 'Hidden',
+        message: 'No access',
+      });
+
+      const response = await request(app)
+        .get(`/api/notifications/${notification.id}`)
+        .expect(403);
+
+      expect(response.body.error).toBe('Access denied');
+    });
   });
 
   describe('POST /api/notifications', () => {
@@ -298,7 +367,7 @@ describe('Notifications API', () => {
       expect(response.body.notification.user).toBeDefined();
     });
 
-    it('should return 404 for non-existent user', async () => {
+    it('should reject creating a notification for another user', async () => {
       const response = await request(app)
         .post('/api/notifications')
         .send({
@@ -307,9 +376,9 @@ describe('Notifications API', () => {
           title: 'Test',
           message: 'Test message',
         })
-        .expect(404);
+        .expect(403);
 
-      expect(response.body.error).toBe('User not found');
+      expect(response.body.error).toBe('You can only create notifications for yourself');
     });
 
     it('should validate required fields', async () => {

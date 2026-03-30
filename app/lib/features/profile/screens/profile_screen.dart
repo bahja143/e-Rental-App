@@ -44,8 +44,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ? [for (var i = 0; i < listings.length; i++) if (i.isOdd) listings[i]]
         : soldListings;
     final reviews = <_ProfileListingReview>[];
+    final estateRepository = EstateRepository();
     for (final listing in listings.take(3)) {
-      for (final review in ListingReview.mockListForListing(listing.id).take(2)) {
+      final reviewMaps = await estateRepository.getListingReviews(listing.id);
+      for (final review in reviewMaps.map(ListingReview.fromJson).take(2)) {
         reviews.add(_ProfileListingReview(listing: listing, review: review));
       }
     }
@@ -282,34 +284,11 @@ class _ProfileDashboardData {
   final List<_ProfileListingReview> reviews;
 
   factory _ProfileDashboardData.fallback() {
-    final listings = const <EstateItem>[
-      EstateItem(
-        id: '1',
-        title: 'Fairview Apartment',
-        location: 'Jakarta, Indonesia',
-        price: 370,
-        imageUrl: 'https://www.figma.com/api/mcp/asset/f6a0ba57-8f22-4e37-916a-bf08df6ba326',
-        rating: 4.9,
-      ),
-      EstateItem(
-        id: '2',
-        title: 'Schoolview House',
-        location: 'Jakarta, Indonesia',
-        price: 320,
-        imageUrl: 'https://www.figma.com/api/mcp/asset/ad39f198-f9e4-4341-b838-0094436e6f45',
-        rating: 4.8,
-      ),
-    ];
     return _ProfileDashboardData(
-      profile: const ProfileUser(name: 'Mathew Adam', email: 'mathew@email.com'),
-      listings: listings,
-      soldListings: [listings.first],
-      reviews: [
-        _ProfileListingReview(
-          listing: listings.first,
-          review: ListingReview.mockListForListing(listings.first.id).first,
-        ),
-      ],
+      profile: const ProfileUser(name: '', email: ''),
+      listings: const <EstateItem>[],
+      soldListings: const <EstateItem>[],
+      reviews: const <_ProfileListingReview>[],
     );
   }
 }

@@ -24,6 +24,10 @@ class AppRoutes {
   static const profileTransaction = '/profile-transaction';
   static const profileReviews = '/profile-reviews';
   static const performanceReport = '/performance-report';
+  static const listingPlan = '/listing-plan';
+  static const withdrawBalance = '/withdraw-balance';
+  static const withdrawSummary = '/withdraw-summary';
+  static const withdrawSuccess = '/withdraw-success';
   static const explore = '/explore';
   static const topLocations = '/top-locations';
   static const topAgents = '/top-agents';
@@ -42,6 +46,7 @@ class AppRoutes {
   static const transactionSuccess = '/transaction/success';
   static const transactionHistory = '/transaction/history';
   static const transactionDetail = '/transaction/detail';
+  static const transactionDispute = '/transaction/dispute';
   static const submitReview = '/transaction/review';
 
   static const estate = '/estate';
@@ -71,8 +76,11 @@ class AppRoutes {
   }
   static String transactionSummaryForEstate(String estateId) => '$transactionSummary?estateId=$estateId';
   static String transactionDetailRoute(String transactionId) => '$transactionDetail/$transactionId';
+  static String transactionDisputeRoute(String transactionId) => '$transactionDispute/$transactionId';
   static String submitReviewRoute(String listingId) => '$submitReview?listingId=$listingId';
   static String performanceReportForEstate(String estateId) => '$performanceReport?estateId=$estateId';
+  static String withdrawSummaryRoute({required String amount, required String method}) =>
+      '$withdrawSummary?amount=${Uri.encodeComponent(amount)}&method=${Uri.encodeComponent(method)}';
   static String editEstateRoute(String estateId) => '$editEstate/$estateId';
   static String otpForEmail(String email) => '$otp?email=${Uri.encodeComponent(email)}';
   static String phoneVerificationForLogin(String phone) =>

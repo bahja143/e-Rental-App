@@ -34,8 +34,10 @@ class _ProfileAllReviewsScreenState extends State<ProfileAllReviewsScreen> {
     final profile = await ProfileRepository().getMyProfile();
     final listings = await EstateRepository().getFeaturedEstates();
     final reviews = <_ProfileListingReview>[];
+    final estateRepository = EstateRepository();
     for (final listing in listings.take(4)) {
-      for (final review in ListingReview.mockListForListing(listing.id).take(1)) {
+      final reviewMaps = await estateRepository.getListingReviews(listing.id);
+      for (final review in reviewMaps.map(ListingReview.fromJson).take(1)) {
         reviews.add(_ProfileListingReview(listing: listing, review: review));
       }
     }
@@ -164,22 +166,9 @@ class _ProfileReviewsData {
   final List<_ProfileListingReview> reviews;
 
   factory _ProfileReviewsData.fallback() {
-    const listing = EstateItem(
-      id: '1',
-      title: 'Fairview Apartment',
-      location: 'Semarang, Indonesia',
-      price: 370,
-      imageUrl: 'https://www.figma.com/api/mcp/asset/8e67edf5-9569-458b-b5bb-ae3b499ccce7',
-      rating: 4.9,
-    );
     return _ProfileReviewsData(
-      profile: const ProfileUser(name: 'Mandella', email: 'mandella@email.com'),
-      reviews: [
-        _ProfileListingReview(
-          listing: listing,
-          review: ListingReview.mockListForListing('1').first,
-        ),
-      ],
+      profile: const ProfileUser(name: '', email: ''),
+      reviews: const <_ProfileListingReview>[],
     );
   }
 }

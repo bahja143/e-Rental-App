@@ -9,6 +9,7 @@ class EstateDraft {
     required this.lat,
     required this.lng,
     this.imagePaths = const <String>[],
+    this.videoPaths = const <String>[],
     this.bedrooms = 1,
     this.bathrooms = 1,
     this.livingRooms = 1,
@@ -30,6 +31,7 @@ class EstateDraft {
   final double lat;
   final double lng;
   final List<String> imagePaths;
+  final List<String> videoPaths;
   final int bedrooms;
   final int bathrooms;
   final int livingRooms;
@@ -51,6 +53,7 @@ class EstateDraft {
     double? lat,
     double? lng,
     List<String>? imagePaths,
+    List<String>? videoPaths,
     int? bedrooms,
     int? bathrooms,
     int? livingRooms,
@@ -72,6 +75,7 @@ class EstateDraft {
       lat: lat ?? this.lat,
       lng: lng ?? this.lng,
       imagePaths: imagePaths ?? this.imagePaths,
+      videoPaths: videoPaths ?? this.videoPaths,
       bedrooms: bedrooms ?? this.bedrooms,
       bathrooms: bathrooms ?? this.bathrooms,
       livingRooms: livingRooms ?? this.livingRooms,
@@ -96,6 +100,7 @@ class EstateDraft {
       'lat': lat,
       'lng': lng,
       'imagePaths': imagePaths,
+      'videoPaths': videoPaths,
       'bedrooms': bedrooms,
       'bathrooms': bathrooms,
       'livingRooms': livingRooms,

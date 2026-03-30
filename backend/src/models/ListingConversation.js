@@ -11,8 +11,7 @@ const listingConversationSchema = new mongoose.Schema({
     required: true
   },
   participants: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    type: String,
     required: true
   }],
   created_at: {

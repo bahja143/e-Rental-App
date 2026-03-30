@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/centered_header_bar.dart';
 import '../data/models/chat_message.dart';
 import '../data/repositories/messages_repository.dart';
 
@@ -63,60 +65,289 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Row(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
           children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: AppColors.primary.withValues(alpha: 0.3),
-              child: Text(widget.agentName[0], style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppColors.primary, fontSize: 14)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+              child: SizedBox(
+                height: 50,
+                child: Row(
+                  children: [
+                    HeaderCircleButton(
+                      icon: Icons.arrow_back_ios_new_rounded,
+                      onTap: () {
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go(AppRoutes.messages);
+                        }
+                      },
+                    ),
+                    Expanded(
+                      child: Center(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircleAvatar(
+                              radius: 25,
+                              backgroundColor: AppColors.greySoft1,
+                              child: Text(
+                                widget.agentName.substring(0, 1).toUpperCase(),
+                                style: GoogleFonts.lato(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.agentName,
+                                  style: GoogleFonts.raleway(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                    letterSpacing: 0.42,
+                                  ),
+                                ),
+                                Text(
+                                  'Online',
+                                  style: GoogleFonts.raleway(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.greyMedium,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    HeaderCircleButton(
+                      icon: Icons.delete_outline_rounded,
+                      onTap: _showDeleteSheet,
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(width: 12),
-            Text(widget.agentName, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 14)),
+            const SizedBox(height: 14),
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(10, 20, 10, 14),
+                decoration: BoxDecoration(
+                  color: AppColors.greySoft1,
+                  borderRadius: BorderRadius.circular(40),
+                ),
+                child: FutureBuilder<List<ChatMessage>>(
+                  future: _conversationFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+                    }
+                    final messages = [...(snapshot.data ?? const <ChatMessage>[]), ..._localMessages];
+                    return Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryBackground.withValues(alpha: 0.69),
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                          child: Text(
+                            'December 12, 2022',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Expanded(
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            itemCount: messages.length,
+                            itemBuilder: (_, i) {
+                              final m = messages[i];
+                              return _ChatBubble(message: m.message, isMe: m.isMe, time: m.time);
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _ChatInput(
+                          controller: _inputController,
+                          onSend: _handleSend,
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
           ],
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go(AppRoutes.messages);
-            }
-          },
-        ),
-        actions: [
-          IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
-        ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: FutureBuilder<List<ChatMessage>>(
-              future: _conversationFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-                }
-                final messages = [...(snapshot.data ?? const <ChatMessage>[]), ..._localMessages];
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: messages.length,
-                  itemBuilder: (_, i) {
-                    final m = messages[i];
-                    return _ChatBubble(message: m.message, isMe: m.isMe, time: m.time);
-                  },
-                );
-              },
+    );
+  }
+
+  void _showDeleteSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Container(
+          height: 467,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(50)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 27, 24, 24),
+            child: Column(
+              children: [
+                Container(
+                  width: 60,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6E6A99),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+                const SizedBox(height: 56),
+                Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.35),
+                        blurRadius: 24,
+                        spreadRadius: 8,
+                      ),
+                    ],
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '?',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 25,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 74),
+                Text.rich(
+                  TextSpan(
+                    style: GoogleFonts.lato(
+                      fontSize: 25,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textPrimary,
+                      height: 1.4,
+                      letterSpacing: 0.75,
+                    ),
+                    children: [
+                      const TextSpan(text: 'Are you sure want to\n'),
+                      TextSpan(
+                        text: 'delete',
+                        style: GoogleFonts.lato(
+                          fontSize: 25,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textSecondary,
+                          height: 1.4,
+                          letterSpacing: 0.75,
+                        ),
+                      ),
+                      const TextSpan(text: ' all your chat?'),
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'This action can\'t be undo',
+                  style: GoogleFonts.raleway(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: AppColors.greyMedium,
+                    letterSpacing: 0.36,
+                  ),
+                ),
+                const Spacer(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 70,
+                        child: ElevatedButton(
+                          onPressed: () => context.pop(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            'Cancel',
+                            style: GoogleFonts.lato(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              letterSpacing: 0.48,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: SizedBox(
+                        height: 70,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              _localMessages.clear();
+                              _conversationFuture = Future<List<ChatMessage>>.value(const <ChatMessage>[]);
+                            });
+                            context.pop();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.greySoft1,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            'Delete',
+                            style: GoogleFonts.lato(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                              letterSpacing: 0.36,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          _ChatInput(
-            controller: _inputController,
-            onSend: _handleSend,
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -132,35 +363,44 @@ class _ChatBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-        decoration: BoxDecoration(
-          color: isMe ? AppColors.primary : AppColors.greySoft1,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(isMe ? 16 : 4),
-            bottomRight: Radius.circular(isMe ? 4 : 16),
-          ),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 18),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
+          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            Text(
-              message,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: isMe ? Colors.white : AppColors.textPrimary,
-                  ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.82),
+              decoration: BoxDecoration(
+                color: isMe ? Colors.white : AppColors.primaryBackground,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft: Radius.circular(isMe ? 16 : 0),
+                  bottomRight: Radius.circular(isMe ? 0 : 16),
+                ),
+              ),
+              child: Text(
+                message,
+                textAlign: isMe ? TextAlign.right : TextAlign.left,
+                style: GoogleFonts.raleway(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: isMe ? AppColors.greyMedium : Colors.white,
+                  letterSpacing: 0.36,
+                  height: 1.65,
+                ),
+              ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             Text(
-              time,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontSize: 10,
-                    color: isMe ? Colors.white70 : AppColors.greyBarelyMedium,
-                  ),
+              time.replaceAll(':', '.'),
+              style: GoogleFonts.montserrat(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: AppColors.greyBarelyMedium,
+                letterSpacing: 0.3,
+              ),
             ),
           ],
         ),
@@ -181,40 +421,51 @@ class _ChatInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      color: AppColors.surface,
-      child: SafeArea(
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: controller,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14),
-                decoration: InputDecoration(
-                  hintText: 'Type a message...',
-                  filled: true,
-                  fillColor: AppColors.greySoft1,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(25),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                  hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14),
+      height: 70,
+      padding: const EdgeInsets.only(left: 16, right: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.camera_alt_outlined, color: AppColors.greyMedium),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              textInputAction: TextInputAction.done,
+              style: GoogleFonts.raleway(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: AppColors.textPrimary,
+                letterSpacing: 0.36,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Say something',
+                border: InputBorder.none,
+                hintStyle: GoogleFonts.raleway(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: AppColors.greyBarelyMedium,
+                  letterSpacing: 0.36,
                 ),
-                onSubmitted: onSend,
               ),
             ),
-            const SizedBox(width: 12),
-            CircleAvatar(
-              radius: 24,
-              backgroundColor: AppColors.primary,
-              child: IconButton(
-                icon: const Icon(Icons.send, color: Colors.white, size: 20),
-                onPressed: () => onSend(controller.text),
-              ),
+          ),
+          Container(
+            width: 50,
+            height: 50,
+            decoration: const BoxDecoration(
+              color: Color(0xFF8BC83F),
+              shape: BoxShape.circle,
             ),
-          ],
-        ),
+            child: IconButton(
+              icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+              onPressed: () => onSend(controller.text),
+            ),
+          ),
+        ],
       ),
     );
   }

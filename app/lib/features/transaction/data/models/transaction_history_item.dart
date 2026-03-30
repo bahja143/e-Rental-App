@@ -5,6 +5,7 @@ class TransactionHistoryItem {
     required this.dateLabel,
     required this.amount,
     required this.isIncome,
+    this.hasDispute = false,
   });
 
   final String id;
@@ -12,4 +13,5 @@ class TransactionHistoryItem {
   final String dateLabel;
   final double amount;
   final bool isIncome;
+  final bool hasDispute;
 }

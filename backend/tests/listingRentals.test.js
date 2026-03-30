@@ -1,13 +1,13 @@
 process.env.NODE_ENV = 'test';
 
 const request = require('supertest');
-const { sequelize, ListingRental, Listing, User, Coupon } = require('../src/models');
+const { sequelize, ListingRental, Listing, User, Coupon, PropertyCategory } = require('../src/models');
 
 // Mock the auth middleware to bypass authentication for tests
 jest.mock('../src/middleware/authMiddleware', () => ({
   authenticateToken: (req, res, next) => {
     // Mock user for authenticated requests
-    req.user = { id: 1, role: 'admin' };
+    req.user = { id: 2, role: 'admin' };
     next();
   }
 }));
@@ -23,12 +23,16 @@ jest.mock('../src/queues', () => ({
   },
 }));
 
+jest.setTimeout(20000);
+
 describe('Listing Rentals API', () => {
   let app;
   let server;
-  let testUser;
+  let ownerUser;
+  let renterUser;
   let testListing;
   let testCoupon;
+  let testCategory;
 
   beforeAll(async () => {
     // Import app after mocking
@@ -37,18 +41,25 @@ describe('Listing Rentals API', () => {
     // Sync the in-memory database
     await sequelize.sync({ force: true });
 
-    // Create a test user
-    testUser = await User.create({
-      name: 'Test User',
-      email: 'test@example.com',
+    ownerUser = await User.create({
+      name: 'Owner User',
+      email: 'owner@example.com',
       password: 'password123',
       available_balance: 1000,
       pending_balance: 0,
     });
 
+    renterUser = await User.create({
+      name: 'Renter User',
+      email: 'renter@example.com',
+      password: 'password123',
+      available_balance: 500,
+      pending_balance: 0,
+    });
+
     // Create a test listing
     testListing = await Listing.create({
-      user_id: testUser.id,
+      user_id: ownerUser.id,
       title: 'Test Listing',
       address: '123 Test St',
       lat: 40.7128,
@@ -57,6 +68,12 @@ describe('Listing Rentals API', () => {
       rent_type: 'daily',
       description: 'A test listing',
     });
+
+    testCategory = await PropertyCategory.create({
+      name_en: 'Apartment',
+      name_so: 'Apartment',
+    });
+    await testListing.addPropertyCategory(testCategory);
 
     // Create a test coupon
     testCoupon = await Coupon.create({
@@ -101,7 +118,7 @@ describe('Listing Rentals API', () => {
     it('should return listing rentals with related data', async () => {
       const rental = await ListingRental.create({
         list_id: testListing.id,
-        renter_id: testUser.id,
+        renter_id: renterUser.id,
         start_date: new Date('2024-01-01'),
         end_date: new Date('2024-01-05'),
         rent_type: 'daily',
@@ -123,8 +140,10 @@ describe('Listing Rentals API', () => {
       expect(response.body.data[0].status).toBe('pending');
       expect(response.body.data[0].listing).toHaveProperty('id', testListing.id);
       expect(response.body.data[0].listing).toHaveProperty('title', testListing.title);
-      expect(response.body.data[0].renter).toHaveProperty('id', testUser.id);
-      expect(response.body.data[0].renter).toHaveProperty('name', testUser.name);
+      expect(response.body.data[0].listing.user).toHaveProperty('id', ownerUser.id);
+      expect(response.body.data[0].listing.propertyCategories[0]).toHaveProperty('name_en', 'Apartment');
+      expect(response.body.data[0].renter).toHaveProperty('id', renterUser.id);
+      expect(response.body.data[0].renter).toHaveProperty('name', renterUser.name);
     });
 
     it('should support pagination', async () => {
@@ -133,7 +152,7 @@ describe('Listing Rentals API', () => {
       for (let i = 1; i <= 25; i++) {
         rentals.push({
           list_id: testListing.id,
-          renter_id: testUser.id,
+          renter_id: renterUser.id,
           start_date: new Date(`2024-01-${String(i).padStart(2, '0')}`),
           end_date: new Date(`2024-01-${String(i + 1).padStart(2, '0')}`),
           rent_type: 'daily',
@@ -160,7 +179,7 @@ describe('Listing Rentals API', () => {
     it('should support status filtering', async () => {
       await ListingRental.create({
         list_id: testListing.id,
-        renter_id: testUser.id,
+        renter_id: renterUser.id,
         start_date: new Date('2024-01-01'),
         end_date: new Date('2024-01-05'),
         rent_type: 'daily',
@@ -173,7 +192,7 @@ describe('Listing Rentals API', () => {
       });
       await ListingRental.create({
         list_id: testListing.id,
-        renter_id: testUser.id,
+        renter_id: renterUser.id,
         start_date: new Date('2024-02-01'),
         end_date: new Date('2024-02-05'),
         rent_type: 'daily',
@@ -196,7 +215,7 @@ describe('Listing Rentals API', () => {
     it('should support rent_type filtering', async () => {
       await ListingRental.create({
         list_id: testListing.id,
-        renter_id: testUser.id,
+        renter_id: renterUser.id,
         start_date: new Date('2024-01-01'),
         end_date: new Date('2024-01-05'),
         rent_type: 'monthly',
@@ -218,7 +237,7 @@ describe('Listing Rentals API', () => {
 
     it('should support list_id filtering', async () => {
       const anotherListing = await Listing.create({
-        user_id: testUser.id,
+        user_id: ownerUser.id,
         title: 'Another Listing',
         address: '456 Another St',
         lat: 40.7128,
@@ -229,7 +248,7 @@ describe('Listing Rentals API', () => {
 
       await ListingRental.create({
         list_id: testListing.id,
-        renter_id: testUser.id,
+        renter_id: renterUser.id,
         start_date: new Date('2024-01-01'),
         end_date: new Date('2024-01-05'),
         rent_type: 'daily',
@@ -242,7 +261,7 @@ describe('Listing Rentals API', () => {
       });
       await ListingRental.create({
         list_id: anotherListing.id,
-        renter_id: testUser.id,
+        renter_id: renterUser.id,
         start_date: new Date('2024-02-01'),
         end_date: new Date('2024-02-05'),
         rent_type: 'daily',
@@ -271,7 +290,7 @@ describe('Listing Rentals API', () => {
 
       await ListingRental.create({
         list_id: testListing.id,
-        renter_id: testUser.id,
+        renter_id: renterUser.id,
         start_date: new Date('2024-01-01'),
         end_date: new Date('2024-01-05'),
         rent_type: 'daily',
@@ -297,11 +316,11 @@ describe('Listing Rentals API', () => {
       });
 
       const response = await request(app)
-        .get(`/api/listing-rentals?renter_id=${testUser.id}`)
+        .get(`/api/listing-rentals?renter_id=${renterUser.id}`)
         .expect(200);
 
       expect(response.body.data).toHaveLength(1);
-      expect(response.body.data[0].renter_id).toBe(testUser.id);
+      expect(response.body.data[0].renter_id).toBe(renterUser.id);
     });
 
     it('should handle invalid page number', async () => {
@@ -325,7 +344,7 @@ describe('Listing Rentals API', () => {
     it('should return a listing rental by ID with related data', async () => {
       const rental = await ListingRental.create({
         list_id: testListing.id,
-        renter_id: testUser.id,
+        renter_id: renterUser.id,
         start_date: new Date('2024-01-01'),
         end_date: new Date('2024-01-05'),
         rent_type: 'daily',
@@ -348,7 +367,9 @@ describe('Listing Rentals API', () => {
       expect(response.body.discount).toBe(50.00);
       expect(response.body.total).toBe(450.00);
       expect(response.body.listing).toHaveProperty('id', testListing.id);
-      expect(response.body.renter).toHaveProperty('id', testUser.id);
+      expect(response.body.listing.user).toHaveProperty('id', ownerUser.id);
+      expect(response.body.listing.propertyCategories[0]).toHaveProperty('name_en', 'Apartment');
+      expect(response.body.renter).toHaveProperty('id', renterUser.id);
       expect(response.body.coupon).toHaveProperty('id', testCoupon.id);
       expect(response.body.coupon).toHaveProperty('code', testCoupon.code);
     });
@@ -374,16 +395,15 @@ describe('Listing Rentals API', () => {
     it('should create a new listing rental', async () => {
       const newRental = {
         list_id: testListing.id,
-        renter_id: testUser.id,
         start_date: '2024-01-01',
         end_date: '2024-01-05',
         rent_type: 'daily',
         status: 'pending',
-        subtotal: 500.00,
-        discount: 50.00,
-        total: 450.00,
+        subtotal: 999.00,
+        discount: 999.00,
+        total: 1.00,
         commission: 45.00,
-        sellers_value: 405.00,
+        sellers_value: 315.00,
         bank_name: 'Test Bank',
         account_holder_name: 'Test User',
         coupon_code: 'TEST10',
@@ -396,19 +416,18 @@ describe('Listing Rentals API', () => {
         .expect(201);
 
       expect(response.body.message).toBe('Listing rental created successfully');
-      expect(response.body.listingRental.subtotal).toBe(500.00);
-      expect(response.body.listingRental.discount).toBe(50.00);
-      expect(response.body.listingRental.total).toBe(450.00);
+      expect(response.body.listingRental.subtotal).toBe(400.00);
+      expect(response.body.listingRental.discount).toBe(40.00);
+      expect(response.body.listingRental.total).toBe(360.00);
       expect(response.body.listingRental.status).toBe('pending');
       expect(response.body.listingRental.listing).toHaveProperty('id', testListing.id);
-      expect(response.body.listingRental.renter).toHaveProperty('id', testUser.id);
+      expect(response.body.listingRental.renter).toHaveProperty('id', renterUser.id);
       expect(response.body.listingRental.coupon).toHaveProperty('id', testCoupon.id);
     });
 
     it('should create listing rental with minimal required fields', async () => {
       const minimalRental = {
         list_id: testListing.id,
-        renter_id: testUser.id,
         start_date: '2024-01-01',
         end_date: '2024-01-05',
         rent_type: 'daily',
@@ -424,7 +443,8 @@ describe('Listing Rentals API', () => {
         .send(minimalRental)
         .expect(201);
 
-      expect(response.body.listingRental.subtotal).toBe(500.00);
+      expect(response.body.listingRental.subtotal).toBe(400.00);
+      expect(response.body.listingRental.total).toBe(400.00);
       expect(response.body.listingRental.status).toBe('pending'); // default value
       expect(response.body.listingRental.discount).toBe(0); // default value
     });
@@ -435,7 +455,7 @@ describe('Listing Rentals API', () => {
         .send({})
         .expect(400);
 
-      expect(response.body.error).toBe('Valid list ID is required');
+      expect(response.body.error).toBe('Valid list_id is required');
     });
 
     it('should validate date range', async () => {
@@ -443,7 +463,6 @@ describe('Listing Rentals API', () => {
         .post('/api/listing-rentals')
         .send({
           list_id: testListing.id,
-          renter_id: testUser.id,
           start_date: '2024-01-05',
           end_date: '2024-01-01', // Before start date
           rent_type: 'daily',
@@ -463,7 +482,6 @@ describe('Listing Rentals API', () => {
         .post('/api/listing-rentals')
         .send({
           list_id: testListing.id,
-          renter_id: testUser.id,
           start_date: '2024-01-01',
           end_date: '2024-01-05',
           rent_type: 'invalid_type',
@@ -478,65 +496,64 @@ describe('Listing Rentals API', () => {
       expect(response.body.error).toBe('Valid rent_type is required');
     });
 
-    it('should validate status enum', async () => {
+    it('should reject creating a rental with a non-pending status', async () => {
       const response = await request(app)
         .post('/api/listing-rentals')
         .send({
           list_id: testListing.id,
-          renter_id: testUser.id,
           start_date: '2024-01-01',
           end_date: '2024-01-05',
           rent_type: 'daily',
           status: 'invalid_status',
-          subtotal: 500.00,
-          discount: 0,
-          total: 500.00,
-          commission: 50.00,
-          sellers_value: 450.00,
         })
         .expect(400);
 
-      expect(response.body.error).toBe('Invalid status value');
+      expect(response.body.error).toBe('New rentals must be created with status "pending"');
     });
 
-    it('should validate monetary values', async () => {
+    it('should ignore client-supplied monetary values and calculate totals server-side', async () => {
       const response = await request(app)
         .post('/api/listing-rentals')
         .send({
           list_id: testListing.id,
-          renter_id: testUser.id,
           start_date: '2024-01-01',
           end_date: '2024-01-05',
           rent_type: 'daily',
           subtotal: -500,
-          discount: 0,
+          discount: 1000,
           total: -500,
           commission: 50.00,
           sellers_value: 450.00,
         })
-        .expect(400);
+        .expect(201);
 
-      expect(response.body.error).toBe('Subtotal must be a non-negative number');
+      expect(response.body.listingRental.subtotal).toBe(400.00);
+      expect(response.body.listingRental.discount).toBe(0);
+      expect(response.body.listingRental.total).toBe(400.00);
     });
 
-    it('should validate total calculation', async () => {
+    it('should prevent renting your own listing', async () => {
+      const ownListing = await Listing.create({
+        user_id: renterUser.id,
+        title: 'Self Listing',
+        address: '789 Self St',
+        lat: 40.7128,
+        lng: -74.0060,
+        rent_price: 150,
+        rent_type: 'daily',
+      });
+
       const response = await request(app)
         .post('/api/listing-rentals')
         .send({
-          list_id: testListing.id,
-          renter_id: testUser.id,
+          list_id: ownListing.id,
           start_date: '2024-01-01',
           end_date: '2024-01-05',
           rent_type: 'daily',
-          subtotal: 500.00,
-          discount: 50.00,
-          total: 400.00, // Should be 450.00
-          commission: 45.00,
-          sellers_value: 405.00,
         })
         .expect(400);
 
-      expect(response.body.error).toBe('Total must equal subtotal minus discount');
+      expect(response.body.error).toBe('You cannot rent your own listing');
     });
 
     it('should handle non-existent listing', async () => {
@@ -544,7 +561,6 @@ describe('Listing Rentals API', () => {
         .post('/api/listing-rentals')
         .send({
           list_id: 999,
-          renter_id: testUser.id,
           start_date: '2024-01-01',
           end_date: '2024-01-05',
           rent_type: 'daily',
@@ -559,32 +575,11 @@ describe('Listing Rentals API', () => {
       expect(response.body.error).toBe('Listing not found');
     });
 
-    it('should handle non-existent renter', async () => {
-      const response = await request(app)
-        .post('/api/listing-rentals')
-        .send({
-          list_id: testListing.id,
-          renter_id: 999,
-          start_date: '2024-01-01',
-          end_date: '2024-01-05',
-          rent_type: 'daily',
-          subtotal: 500.00,
-          discount: 0,
-          total: 500.00,
-          commission: 50.00,
-          sellers_value: 450.00,
-        })
-        .expect(404);
-
-      expect(response.body.error).toBe('Renter not found');
-    });
-
     it('should handle non-existent coupon', async () => {
       const response = await request(app)
         .post('/api/listing-rentals')
         .send({
           list_id: testListing.id,
-          renter_id: testUser.id,
           start_date: '2024-01-01',
           end_date: '2024-01-05',
           rent_type: 'daily',
@@ -595,7 +590,7 @@ describe('Listing Rentals API', () => {
           sellers_value: 450.00,
           coupon_id: 999,
         })
-        .expect(404);
+        .expect(400);
 
       expect(response.body.error).toBe('Coupon not found');
     });
@@ -607,7 +602,7 @@ describe('Listing Rentals API', () => {
     beforeEach(async () => {
       testRental = await ListingRental.create({
         list_id: testListing.id,
-        renter_id: testUser.id,
+        renter_id: renterUser.id,
         start_date: new Date('2024-01-01'),
         end_date: new Date('2024-01-05'),
         rent_type: 'daily',
@@ -718,7 +713,7 @@ describe('Listing Rentals API', () => {
     beforeEach(async () => {
       testRental = await ListingRental.create({
         list_id: testListing.id,
-        renter_id: testUser.id,
+        renter_id: renterUser.id,
         start_date: new Date('2024-01-01'),
         end_date: new Date('2024-01-05'),
         rent_type: 'daily',
