@@ -6,8 +6,8 @@ class EstateDraft {
     required this.pricePerMonth,
     required this.listingType,
     required this.category,
-    required this.lat,
-    required this.lng,
+    this.lat,
+    this.lng,
     this.imagePaths = const <String>[],
     this.videoPaths = const <String>[],
     this.bedrooms = 1,
@@ -28,8 +28,8 @@ class EstateDraft {
   final double pricePerMonth;
   final String listingType;
   final String category;
-  final double lat;
-  final double lng;
+  final double? lat;
+  final double? lng;
   final List<String> imagePaths;
   final List<String> videoPaths;
   final int bedrooms;

@@ -1,16 +1,24 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/maps/google_geocoding_client.dart';
+import '../../../core/maps/maps_api_key_provider.dart';
+import '../../../core/network/api_config.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../shared/widgets/remote_image.dart';
+import '../../../shared/widgets/centered_header_bar.dart';
+import '../../../shared/widgets/media_gallery_viewer.dart';
 import '../../home/data/models/estate_item.dart';
 import '../../home/data/repositories/estate_repository.dart';
 import '../data/models/estate_draft.dart';
@@ -28,7 +36,11 @@ class AddEstateScreen extends StatefulWidget {
 enum _AddEstatePublishState { none, success, error }
 
 class _AddEstateScreenState extends State<AddEstateScreen> {
-  static const _initialLatLng = LatLng(-6.9175, 107.6191);
+  static const _initialLatLng = LatLng(9.5624, 44.0770);
+  static const _fallbackAreaLabel = 'Hargeisa, Somalia';
+  static const _footerButtonHeight = 54.0;
+  static const _footerBottomSpacing = 24.0;
+  static const _footerTopSpacing = 24.0;
   static const _amenityOptions = <String>[
     'Balcony',
     'Parking Spaces',
@@ -54,12 +66,12 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
   bool _loadingEdit = false;
   bool _editSuccessVisible = false;
   final _imagePicker = ImagePicker();
+  final _scrollController = ScrollController();
+  final _locationFocusNode = FocusNode();
+  GoogleMapController? _mapController;
 
   final _titleController = TextEditingController(text: 'The Lodge House');
-  final _locationController = TextEditingController(
-    text:
-        'Jl. Cisangkuy, Citarum, Kec. Bandung Wetan, Kota Bandung, Jawa Barat 40115',
-  );
+  final _locationController = TextEditingController();
   final _priceController = TextEditingController(text: '180000');
   final _sellPriceController = TextEditingController(text: '180000');
   final _rentPriceController = TextEditingController(text: '320');
@@ -70,7 +82,11 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
   String _listingType = 'rent';
   String _rentPeriod = 'monthly';
   String _category = 'House';
-  LatLng _selectedLatLng = _initialLatLng;
+  LatLng? _selectedLatLng;
+  LatLng _mapCameraTarget = _initialLatLng;
+  String _mapAreaLabel = _fallbackAreaLabel;
+  Timer? _locationSearchDebounce;
+  List<String> _locationSuggestions = <String>[];
   final List<String> _imagePaths = <String>[];
   final List<String> _videoPaths = <String>[];
   int _bedrooms = 3;
@@ -94,17 +110,32 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
   EstateItem? _editingItem;
 
   bool get _isEditMode => (widget.estateId ?? '').trim().isNotEmpty;
+  String get _screenTitle => _isEditMode ? 'Edit Listing' : 'Add Listing';
+  bool get _hasLocationSelection =>
+      _locationController.text.trim().isNotEmpty || _selectedLatLng != null;
+  String get _locationSummaryText {
+    final typedLocation = _locationController.text.trim();
+    if (typedLocation.isNotEmpty) return typedLocation;
+    if (_mapAreaLabel.isNotEmpty) return _mapAreaLabel;
+    return 'Search for a city or tap the map to choose a location.';
+  }
 
   @override
   void initState() {
     super.initState();
     if (_isEditMode) {
       _loadEditListing();
+    } else {
+      unawaited(_setInitialLocationView());
     }
   }
 
   @override
   void dispose() {
+    _mapController?.dispose();
+    _scrollController.dispose();
+    _locationSearchDebounce?.cancel();
+    _locationFocusNode.dispose();
     _titleController.dispose();
     _locationController.dispose();
     _priceController.dispose();
@@ -125,83 +156,122 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
             Center(child: CircularProgressIndicator(color: AppColors.primary)),
       );
     }
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Column(
-              children: [
-                const SizedBox(height: 8),
-                _AddEstateHeader(onBack: _handleBack),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
-                    child: _isEditMode
-                        ? _buildEditForm()
-                        : AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 180),
-                            child: switch (_step) {
-                              0 => _buildFormDetailStep(),
-                              1 => _buildLocationStep(),
-                              2 => _buildPhotosStep(),
-                              _ => _buildExtraInformationStep(),
-                            },
-                          ),
+    final mediaQuery = MediaQuery.of(context);
+    final safeBottom = mediaQuery.padding.bottom;
+    final keyboardInset = mediaQuery.viewInsets.bottom;
+    final footerBottomPadding = _footerBottomSpacing + safeBottom;
+    final formBottomPadding =
+        _footerTopSpacing + _footerButtonHeight + footerBottomPadding + keyboardInset;
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        resizeToAvoidBottomInset: false,
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Column(
+                children: [
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: CenteredHeaderBar(
+                      title: _screenTitle,
+                      onBack: _handleBack,
+                      titleSize: 15,
+                      titleSpacing: 0,
+                    ),
                   ),
-                ),
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                      24, 0, 24, 24 + MediaQuery.of(context).padding.bottom),
-                  child: _isEditMode
-                      ? _PrimaryWizardButton(
-                          label: _publishing ? 'Updating...' : 'Update',
-                          onTap: _publishing ? null : _updateEstateListing,
-                        )
-                      : Row(
-                          children: [
-                            _CircleActionButton(
-                              icon: Icons.arrow_back_rounded,
-                              onTap: _handleBack,
+                  Expanded(
+                    child: SingleChildScrollView(
+                      controller: _scrollController,
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: EdgeInsets.fromLTRB(
+                        24,
+                        22,
+                        24,
+                        formBottomPadding,
+                      ),
+                      child: _isEditMode
+                          ? _buildEditForm()
+                          : AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 180),
+                              child: switch (_step) {
+                                0 => _buildFormDetailStep(),
+                                1 => _buildLocationStep(),
+                                2 => _buildPhotosStep(),
+                                _ => _buildExtraInformationStep(),
+                              },
                             ),
-                            const SizedBox(width: 18),
-                            Expanded(
-                              child: _PrimaryWizardButton(
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      24,
+                      0,
+                      24,
+                      footerBottomPadding,
+                    ),
+                    child: _isEditMode
+                        ? _PrimaryWizardButton(
+                            label: _publishing ? 'Updating...' : 'Update',
+                            onTap: _publishing ? null : _updateEstateListing,
+                          )
+                        : _step == 2
+                            ? Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _CircleActionButton(
+                                    icon: Icons.arrow_back_ios_new_rounded,
+                                    onTap: _handleBack,
+                                    iconSize: 20,
+                                  ),
+                                  const SizedBox(width: 16),
+                                  SizedBox(
+                                    width: 190,
+                                    child: _PrimaryWizardButton(
+                                      label: 'Next',
+                                      onTap: _publishing ? null : _handleNext,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : _PrimaryWizardButton(
                                 label: _step == 3
                                     ? (_publishing ? 'Publishing...' : 'Finish')
                                     : 'Next',
                                 onTap: _publishing ? null : _handleNext,
                               ),
-                            ),
-                          ],
-                        ),
-                ),
-              ],
-            ),
-            if (_editSuccessVisible)
-              Positioned.fill(
-                child: _EditListingSuccessOverlay(
-                  onClose: () {
-                    setState(() => _editSuccessVisible = false);
-                    context.pop();
-                  },
-                ),
+                  ),
+                ],
               ),
-            if (_publishState != _AddEstatePublishState.none)
-              Positioned.fill(
-                child: _AddEstateResultOverlay(
-                  success: _publishState == _AddEstatePublishState.success,
-                  onPrimaryTap: _publishState == _AddEstatePublishState.success
-                      ? () => context.go(AppRoutes.home)
-                      : _retryPublish,
-                  onSecondaryTap: _publishState ==
-                          _AddEstatePublishState.success
-                      ? _addMore
-                      : () => setState(
-                          () => _publishState = _AddEstatePublishState.none),
+              if (_editSuccessVisible)
+                Positioned.fill(
+                  child: _EditListingSuccessOverlay(
+                    onClose: () {
+                      setState(() => _editSuccessVisible = false);
+                      context.pop();
+                    },
+                  ),
                 ),
-              ),
-          ],
+              if (_publishState != _AddEstatePublishState.none)
+                Positioned.fill(
+                  child: _AddEstateResultOverlay(
+                    success: _publishState == _AddEstatePublishState.success,
+                    onPrimaryTap: _publishState == _AddEstatePublishState.success
+                        ? () => context.go(AppRoutes.home)
+                        : _retryPublish,
+                    onSecondaryTap:
+                        _publishState == _AddEstatePublishState.success
+                            ? _addMore
+                            : () => setState(
+                                () => _publishState = _AddEstatePublishState.none),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -318,7 +388,11 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
         const SizedBox(height: 12),
         _InputCard(
           controller: _locationController,
-          hint: 'Search address',
+          focusNode: _locationFocusNode,
+          hint: 'Search city or area',
+          textInputAction: TextInputAction.search,
+          onChanged: _handleLocationQueryChanged,
+          onSubmitted: (_) => _searchAddress(),
           trailing: _lookingUpAddress
               ? const SizedBox(
                   width: 20,
@@ -332,6 +406,10 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
                       color: AppColors.textPrimary),
                 ),
         ),
+        if (_locationSuggestions.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _buildLocationSuggestions(),
+        ],
         const SizedBox(height: 12),
         _buildMapCard(height: 200),
         const SizedBox(height: 24),
@@ -487,6 +565,7 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
 
   Widget _buildEditPreviewCard() {
     final item = _editingItem;
+    final previewRating = item?.rating;
     final mediaPath = _imagePaths.isNotEmpty
         ? _imagePaths.first
         : _videoPaths.isNotEmpty
@@ -530,22 +609,24 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.star_rounded,
-                        size: 9, color: AppColors.primary),
-                    const SizedBox(width: 2),
-                    Text(
-                      ((item?.rating) ?? 4.6).toStringAsFixed(1),
-                      style: GoogleFonts.montserrat(
-                        fontSize: 8,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.greyMedium,
+                if ((previewRating ?? 0) > 0) ...[
+                  Row(
+                    children: [
+                      const Icon(Icons.star_rounded,
+                          size: 9, color: AppColors.primary),
+                      const SizedBox(width: 2),
+                      Text(
+                        previewRating!.toStringAsFixed(1),
+                        style: GoogleFonts.montserrat(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.greyMedium,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 Row(
                   children: [
                     const Icon(Icons.location_on_outlined,
@@ -590,9 +671,7 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
         const SizedBox(width: 14),
         Expanded(
           child: Text(
-            _locationController.text.trim().isEmpty
-                ? 'Tap the map or search an address.'
-                : _locationController.text.trim(),
+            _locationSummaryText,
             style: GoogleFonts.lato(
               fontSize: 12,
               fontWeight: FontWeight.w400,
@@ -607,6 +686,7 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
   }
 
   Widget _buildMapCard({required double height}) {
+    final selectedLatLng = _selectedLatLng;
     return ClipRRect(
       borderRadius: BorderRadius.circular(25),
       child: SizedBox(
@@ -615,18 +695,34 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
           children: [
             GoogleMap(
               initialCameraPosition:
-                  CameraPosition(target: _selectedLatLng, zoom: 14),
+                  CameraPosition(target: _mapCameraTarget, zoom: 14),
+              onMapCreated: (controller) {
+                _mapController?.dispose();
+                _mapController = controller;
+                unawaited(_animateMapToSelectedLocation());
+              },
               onTap: _selectMapLocation,
               myLocationButtonEnabled: false,
+              myLocationEnabled: true,
               zoomControlsEnabled: false,
-              markers: {
-                Marker(
-                  markerId: const MarkerId('estate'),
-                  position: _selectedLatLng,
-                  draggable: true,
-                  onDragEnd: _selectMapLocation,
-                ),
-              },
+              markers: selectedLatLng == null
+                  ? const <Marker>{}
+                  : {
+                      Marker(
+                        markerId: const MarkerId('estate'),
+                        position: selectedLatLng,
+                        draggable: true,
+                        onDragEnd: _selectMapLocation,
+                      ),
+                    },
+            ),
+            Positioned(
+              top: 14,
+              right: 14,
+              child: _MapFloatingActionButton(
+                icon: Icons.my_location_rounded,
+                onTap: _selectCurrentLocationFromMap,
+              ),
             ),
             Positioned(
               left: 0,
@@ -642,7 +738,11 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
                     color: Colors.white.withValues(alpha: 0.5),
                     alignment: Alignment.center,
                     child: Text(
-                      'Select on the map',
+                      _mapAreaLabel.isEmpty
+                          ? 'Tap on the map or search above'
+                          : _mapAreaLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.lato(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
@@ -687,9 +787,7 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
             const SizedBox(width: 14),
             Expanded(
               child: Text(
-                _locationController.text.trim().isEmpty
-                    ? 'Tap the map or search an address.'
-                    : _locationController.text.trim(),
+                _locationSummaryText,
                 style: GoogleFonts.lato(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
@@ -704,7 +802,11 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
         const SizedBox(height: 18),
         _InputCard(
           controller: _locationController,
-          hint: 'Search address',
+          focusNode: _locationFocusNode,
+          hint: 'Search city or area',
+          textInputAction: TextInputAction.search,
+          onChanged: _handleLocationQueryChanged,
+          onSubmitted: (_) => _searchAddress(),
           trailing: _lookingUpAddress
               ? const SizedBox(
                   width: 20,
@@ -718,6 +820,10 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
                       color: AppColors.textPrimary),
                 ),
         ),
+        if (_locationSuggestions.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _buildLocationSuggestions(),
+        ],
         const SizedBox(height: 18),
         _buildMapCard(height: 356),
       ],
@@ -731,10 +837,10 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
       children: [
         _HeroTitle(
           normalText: 'Add ',
-          accentText: 'media',
+          accentText: 'photos',
           trailingText: ' to your\nlisting',
         ),
-        const SizedBox(height: 34),
+        const SizedBox(height: 24),
         _buildMediaManager(),
       ],
     );
@@ -888,6 +994,201 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
     );
   }
 
+  Widget _buildLocationSuggestions() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.greySoft1,
+        borderRadius: BorderRadius.circular(25),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        children: [
+          for (final suggestion in _locationSuggestions.take(6))
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _selectLocationSuggestion(suggestion),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.location_on_outlined,
+                        size: 18,
+                        color: AppColors.greyMedium,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          suggestion,
+                          style: GoogleFonts.lato(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textPrimary,
+                            letterSpacing: 0.36,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _toAreaLabel(String rawAddress) {
+    final address = rawAddress.trim();
+    if (address.isEmpty) return '';
+    final parts = address
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return '';
+    if (parts.length == 1) return parts.first;
+    return '${parts.first}, ${parts[1]}';
+  }
+
+  Future<List<String>> _autocompleteLocationSuggestions(String input) async {
+    final key = (await MapsApiKeyProvider.resolve()).trim();
+    final query = input.trim();
+    if (key.isEmpty || query.isEmpty) return const <String>[];
+
+    final uri = Uri.https(
+      'maps.googleapis.com',
+      '/maps/api/place/autocomplete/json',
+      {
+        'input': query,
+        'types': 'geocode',
+        'key': key,
+      },
+    );
+    try {
+      final res = await http.get(uri).timeout(ApiConfig.connectTimeout);
+      if (res.statusCode != 200) return const <String>[];
+      final json = jsonDecode(res.body) as Map<String, dynamic>;
+      final predictions = json['predictions'] as List<dynamic>?;
+      if (predictions == null || predictions.isEmpty) {
+        return const <String>[];
+      }
+      return predictions
+          .whereType<Map<String, dynamic>>()
+          .map((item) => '${item['description'] ?? ''}'.trim())
+          .where((item) => item.isNotEmpty)
+          .take(6)
+          .toList();
+    } catch (_) {
+      return const <String>[];
+    }
+  }
+
+  void _handleLocationQueryChanged(String value) {
+    _locationSearchDebounce?.cancel();
+    final query = value.trim();
+    if (query.isEmpty) {
+      if (_locationSuggestions.isEmpty) return;
+      setState(() => _locationSuggestions = <String>[]);
+      return;
+    }
+
+    _locationSearchDebounce = Timer(const Duration(milliseconds: 280), () async {
+      final currentQuery = _locationController.text.trim();
+      if (currentQuery.isEmpty || currentQuery != query) return;
+      final suggestions = await _autocompleteLocationSuggestions(currentQuery);
+      if (!mounted || _locationController.text.trim() != currentQuery) return;
+      setState(() {
+        _locationSuggestions = suggestions;
+      });
+    });
+  }
+
+  Future<void> _selectCurrentLocationFromMap() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _showSnack('Please enable location services.');
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission != LocationPermission.whileInUse &&
+          permission != LocationPermission.always) {
+        _showSnack('Location permission is required to use current location.');
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+      );
+      if (!mounted) return;
+      await _selectMapLocation(
+        LatLng(position.latitude, position.longitude),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack('Could not load your current location.');
+    }
+  }
+
+  Future<void> _setInitialLocationView() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission != LocationPermission.whileInUse &&
+          permission != LocationPermission.always) {
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+      );
+      if (!mounted || _selectedLatLng != null) return;
+
+      final currentLatLng = LatLng(position.latitude, position.longitude);
+      setState(() => _mapCameraTarget = currentLatLng);
+      await _animateMapToSelectedLocation();
+
+      final address = await GoogleGeocodingClient.reverseGeocode(currentLatLng);
+      if (!mounted || _selectedLatLng != null) return;
+      if (address != null && address.trim().isNotEmpty) {
+        setState(() => _mapAreaLabel = _toAreaLabel(address));
+      }
+    } catch (_) {
+      // Keep the Hargeisa fallback when current location cannot be resolved.
+    }
+  }
+
+  Future<void> _animateMapToSelectedLocation() async {
+    final controller = _mapController;
+    if (controller == null) return;
+    await controller.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: _mapCameraTarget, zoom: 14),
+      ),
+    );
+  }
+
+  void _scrollToTop() {
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+    );
+  }
+
   void _handleBack() {
     if (_editSuccessVisible) {
       setState(() => _editSuccessVisible = false);
@@ -898,14 +1199,23 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
       return;
     }
     if (_isEditMode) {
-      context.pop();
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go(AppRoutes.profile);
+      }
       return;
     }
     if (_step == 0) {
-      context.pop();
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go(AppRoutes.profile);
+      }
       return;
     }
     setState(() => _step -= 1);
+    _scrollToTop();
   }
 
   Future<void> _handleNext() async {
@@ -915,21 +1225,30 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
           _showSnack('Please enter a listing title.');
           return;
         }
+        FocusManager.instance.primaryFocus?.unfocus();
         setState(() => _step = 1);
+        _scrollToTop();
         return;
       case 1:
-        if (_locationController.text.trim().isEmpty) {
-          _showSnack('Please select a location.');
+        if (!_hasLocationSelection) {
+          _showSnack('Please choose a location.');
           return;
         }
+        if (!await _ensureResolvedLocation()) {
+          return;
+        }
+        FocusManager.instance.primaryFocus?.unfocus();
         setState(() => _step = 2);
+        _scrollToTop();
         return;
       case 2:
         if (_totalMediaCount < 1) {
           _showSnack('Please add at least 1 photo or video.');
           return;
         }
+        FocusManager.instance.primaryFocus?.unfocus();
         setState(() => _step = 3);
+        _scrollToTop();
         return;
       default:
         await _publishEstate();
@@ -939,38 +1258,95 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
   Future<void> _searchAddress() async {
     final query = _locationController.text.trim();
     if (query.isEmpty) return;
-    setState(() => _lookingUpAddress = true);
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _lookingUpAddress = true;
+      _locationSuggestions = <String>[];
+    });
     try {
       final place = await GoogleGeocodingClient.geocodeAddress(query);
       if (!mounted) return;
-      setState(() => _lookingUpAddress = false);
       if (place == null) {
-        _showSnack('Could not find that address.');
+        setState(() => _lookingUpAddress = false);
+        _showSnack('Could not find that location.');
         return;
       }
       setState(() {
+        _lookingUpAddress = false;
+        _mapCameraTarget = place.location;
         _selectedLatLng = place.location;
         _locationController.text = place.formattedAddress;
+        _mapAreaLabel = _toAreaLabel(place.formattedAddress);
       });
+      await _animateMapToSelectedLocation();
     } catch (_) {
       if (!mounted) return;
       setState(() => _lookingUpAddress = false);
-      _showSnack('Could not search that address right now.');
+      _showSnack('Could not search that location right now.');
+    }
+  }
+
+  Future<bool> _ensureResolvedLocation() async {
+    if (_selectedLatLng != null) return true;
+
+    final query = _locationController.text.trim();
+    if (query.isEmpty) {
+      _showSnack('Please choose a location.');
+      return false;
+    }
+
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _lookingUpAddress = true;
+      _locationSuggestions = <String>[];
+    });
+
+    try {
+      final place = await GoogleGeocodingClient.geocodeAddress(query);
+      if (!mounted) return false;
+      if (place == null) {
+        setState(() => _lookingUpAddress = false);
+        _showSnack('Please choose a valid location from search or map.');
+        return false;
+      }
+
+      setState(() {
+        _lookingUpAddress = false;
+        _selectedLatLng = place.location;
+        _mapCameraTarget = place.location;
+        _locationController.text = place.formattedAddress;
+        _mapAreaLabel = _toAreaLabel(place.formattedAddress);
+      });
+      await _animateMapToSelectedLocation();
+      return true;
+    } catch (_) {
+      if (!mounted) return false;
+      setState(() => _lookingUpAddress = false);
+      _showSnack('Could not resolve that location right now.');
+      return false;
     }
   }
 
   Future<void> _selectMapLocation(LatLng position) async {
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _selectedLatLng = position;
+      _mapCameraTarget = position;
       _lookingUpAddress = true;
+      _locationSuggestions = <String>[];
     });
+    await _animateMapToSelectedLocation();
     try {
       final address = await GoogleGeocodingClient.reverseGeocode(position);
       if (!mounted) return;
       setState(() {
         _lookingUpAddress = false;
         if (address != null && address.trim().isNotEmpty) {
+          _mapAreaLabel = _toAreaLabel(address);
           _locationController.text = address.trim();
+        } else {
+          _mapAreaLabel = 'Selected location';
+          _locationController.clear();
         }
       });
     } catch (_) {
@@ -980,33 +1356,75 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
     }
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _selectLocationSuggestion(
+    String suggestion,
+  ) async {
+    setState(() {
+      _locationController.text = suggestion;
+      _locationSuggestions = <String>[];
+    });
+    await _searchAddress();
+  }
+
+  bool _isVideoPath(String path) {
+    final value = path.toLowerCase();
+    return value.endsWith('.mp4') ||
+        value.endsWith('.mov') ||
+        value.endsWith('.webm') ||
+        value.endsWith('.avi') ||
+        value.endsWith('.mkv') ||
+        value.endsWith('.m4v');
+  }
+
+  Future<void> _pickGalleryMedia() async {
     try {
-      final image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
+      final media = await _imagePicker.pickMultipleMedia(
         imageQuality: 85,
         maxWidth: 1600,
         maxHeight: 1600,
       );
-      if (!mounted || image == null) return;
+      if (!mounted || media.isEmpty) return;
+      final imagePaths = <String>[];
+      final videoPaths = <String>[];
+      for (final item in media) {
+        final path = item.path.trim();
+        if (path.isEmpty) continue;
+        if (_isVideoPath(path)) {
+          videoPaths.add(path);
+        } else {
+          imagePaths.add(path);
+        }
+      }
       setState(() {
-        _imagePaths.add(image.path);
+        _imagePaths.addAll(
+          imagePaths.where((path) => !_imagePaths.contains(path)),
+        );
+        _videoPaths.addAll(
+          videoPaths.where((path) => !_videoPaths.contains(path)),
+        );
       });
     } catch (_) {
       if (!mounted) return;
-      _showSnack('Could not open gallery image.');
+      _showSnack('Could not open gallery media.');
     }
   }
 
   Future<void> _pickVideo() async {
     try {
-      final video = await _imagePicker.pickVideo(
-        source: ImageSource.gallery,
-        maxDuration: const Duration(minutes: 5),
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.video,
+        allowMultiple: false,
       );
-      if (!mounted || video == null) return;
+      if (!mounted || result == null || result.files.isEmpty) return;
+      final path = result.files.single.path?.trim() ?? '';
+      if (path.isEmpty) {
+        _showSnack('Could not open gallery video.');
+        return;
+      }
       setState(() {
-        _videoPaths.add(video.path);
+        if (!_videoPaths.contains(path)) {
+          _videoPaths.add(path);
+        }
       });
     } catch (_) {
       if (!mounted) return;
@@ -1016,15 +1434,22 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
 
   void _removeImage(int index) {
     if (index < 0 || index >= _imagePaths.length) return;
-    setState(() => _imagePaths.removeAt(index));
+    setState(() {
+      _imagePaths.removeAt(index);
+    });
   }
 
   void _removeVideo(int index) {
     if (index < 0 || index >= _videoPaths.length) return;
-    setState(() => _videoPaths.removeAt(index));
+    setState(() {
+      _videoPaths.removeAt(index);
+    });
   }
 
   Future<void> _publishEstate() async {
+    if (!await _ensureResolvedLocation()) {
+      return;
+    }
     final price =
         double.tryParse(_priceController.text.trim().replaceAll(',', '')) ?? 0;
     final floorArea = double.tryParse(_floorAreaController.text.trim());
@@ -1037,8 +1462,8 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
       pricePerMonth: price,
       listingType: _listingType == 'rent' ? _rentPeriod : _listingType,
       category: _category,
-      lat: _selectedLatLng.latitude,
-      lng: _selectedLatLng.longitude,
+      lat: _selectedLatLng?.latitude,
+      lng: _selectedLatLng?.longitude,
       imagePaths: List<String>.from(_imagePaths),
       videoPaths: List<String>.from(_videoPaths),
       bedrooms: _bedrooms,
@@ -1052,10 +1477,12 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
       amenities: _selectedAmenities.toList(),
       nearbyPlaces: Map<String, int>.from(_nearbyPlaces),
     );
-    if (draft.title.isEmpty ||
-        draft.location.isEmpty ||
-        draft.pricePerMonth <= 0) {
-      _showSnack('Please complete title, location, and price.');
+    if (draft.title.isEmpty || draft.pricePerMonth <= 0) {
+      _showSnack('Please complete title and price.');
+      return;
+    }
+    if (!_hasLocationSelection) {
+      _showSnack('Please choose a location.');
       return;
     }
     if (draft.imagePaths.length + draft.videoPaths.length < 1) {
@@ -1119,11 +1546,13 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
           );
           _titleController.text = title;
           _locationController.text = location;
+          _mapAreaLabel = _toAreaLabel(location);
           _descriptionController.text =
               _readString(rawListing['description'], fallback: '');
           _category = category;
           if (lat != null && lng != null) {
             _selectedLatLng = LatLng(lat, lng);
+            _mapCameraTarget = LatLng(lat, lng);
           }
           _listingType = sellPrice > 0 ? 'sell' : 'rent';
           _rentPeriod =
@@ -1142,10 +1571,30 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
           _videoPaths
             ..clear()
             ..addAll(videoPaths);
-          _applyListingFeatures(rawListing['listingFeatures']);
-          _applyListingFacilities(rawListing['listingFacilities']);
+          _applyListingFeatures(
+            rawListing['listingFeatures'] ?? rawListing['listing_features'],
+          );
+          _applyListingFacilities(
+            rawListing['listingFacilities'] ?? rawListing['listing_facilities'],
+          );
           _applyNearbyPlaces(listingPlaces);
         });
+        if (lat == null || lng == null) {
+          final query = _locationController.text.trim();
+          if (query.isNotEmpty) {
+            final place = await GoogleGeocodingClient.geocodeAddress(query);
+            if (mounted && place != null) {
+              setState(() => _mapCameraTarget = place.location);
+            }
+          }
+        } else if (_mapAreaLabel.isEmpty) {
+          final address =
+              await GoogleGeocodingClient.reverseGeocode(LatLng(lat, lng));
+          if (mounted && address != null && address.trim().isNotEmpty) {
+            setState(() => _mapAreaLabel = _toAreaLabel(address));
+          }
+        }
+        unawaited(_animateMapToSelectedLocation());
       }
     } catch (_) {
       if (mounted) {
@@ -1161,6 +1610,9 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
   Future<void> _updateEstateListing() async {
     final estateId = widget.estateId?.trim() ?? '';
     if (estateId.isEmpty) return;
+    if (!await _ensureResolvedLocation()) {
+      return;
+    }
     final sellPrice =
         double.tryParse(_sellPriceController.text.trim().replaceAll(',', '')) ??
             0;
@@ -1178,8 +1630,8 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
       pricePerMonth: selectedPrice,
       listingType: _listingType == 'rent' ? _rentPeriod : _listingType,
       category: _category,
-      lat: _selectedLatLng.latitude,
-      lng: _selectedLatLng.longitude,
+      lat: _selectedLatLng?.latitude,
+      lng: _selectedLatLng?.longitude,
       imagePaths: List<String>.from(_imagePaths),
       videoPaths: List<String>.from(_videoPaths),
       bedrooms: _bedrooms,
@@ -1193,8 +1645,12 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
       amenities: _selectedAmenities.toList(),
       nearbyPlaces: Map<String, int>.from(_nearbyPlaces),
     );
-    if (draft.title.isEmpty || draft.location.isEmpty || selectedPrice <= 0) {
-      _showSnack('Please complete title, location, and price.');
+    if (draft.title.isEmpty || selectedPrice <= 0) {
+      _showSnack('Please complete title and price.');
+      return;
+    }
+    if (!_hasLocationSelection) {
+      _showSnack('Please choose a location.');
       return;
     }
     setState(() => _publishing = true);
@@ -1214,15 +1670,17 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
       _step = 0;
       _publishing = false;
       _titleController.text = 'The Lodge House';
-      _locationController.text =
-          'Jl. Cisangkuy, Citarum, Kec. Bandung Wetan, Kota Bandung, Jawa Barat 40115';
+      _locationController.clear();
+      _mapAreaLabel = _fallbackAreaLabel;
+      _locationSuggestions = <String>[];
       _priceController.text = '180000';
       _descriptionController.clear();
       _floorAreaController.text = '1200';
       _constructionYearController.clear();
       _imagePaths.clear();
       _videoPaths.clear();
-      _selectedLatLng = _initialLatLng;
+      _selectedLatLng = null;
+      _mapCameraTarget = _initialLatLng;
       _listingType = 'rent';
       _rentPeriod = 'monthly';
       _category = 'House';
@@ -1244,6 +1702,7 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
           'Gas Stations': 2,
         });
     });
+    unawaited(_setInitialLocationView());
   }
 
   List<String> _extractImagePaths(Map<String, dynamic> rawListing) {
@@ -1267,7 +1726,8 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
   }
 
   String _extractListingCategory(Map<String, dynamic> rawListing) {
-    final propertyCategories = rawListing['propertyCategories'];
+    final propertyCategories =
+        rawListing['propertyCategories'] ?? rawListing['property_categories'];
     if (propertyCategories is List) {
       for (final row in propertyCategories.whereType<Map<String, dynamic>>()) {
         final name = _readString(row['name_en'],
@@ -1276,7 +1736,7 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
       }
     }
 
-    final listingTypes = rawListing['listingTypes'];
+    final listingTypes = rawListing['listingTypes'] ?? rawListing['listing_types'];
     if (listingTypes is List) {
       for (final row in listingTypes.whereType<Map<String, dynamic>>()) {
         final name = _readString(row['name_en'],
@@ -1300,7 +1760,7 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
 
     if (rawFeatures is! List) return;
     for (final row in rawFeatures.whereType<Map<String, dynamic>>()) {
-      final propertyFeature = row['propertyFeature'];
+      final propertyFeature = row['propertyFeature'] ?? row['property_feature'];
       if (propertyFeature is! Map<String, dynamic>) continue;
       final name = _normalizeLabel(
         _readString(propertyFeature['name_en'],
@@ -1353,7 +1813,8 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
     _selectedAmenities.clear();
     if (rawFacilities is! List) return;
     for (final row in rawFacilities.whereType<Map<String, dynamic>>()) {
-      final facility = row['facility'];
+      final facility =
+          row['facility'] ?? row['listingFacility'] ?? row['listing_facility'];
       if (facility is! Map<String, dynamic>) continue;
       final name = _normalizeLabel(
         _readString(facility['name_en'],
@@ -1387,7 +1848,7 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
       });
 
     for (final row in listingPlaces) {
-      final nearbyPlace = row['nearbyPlace'];
+      final nearbyPlace = row['nearbyPlace'] ?? row['nearby_place'];
       if (nearbyPlace is! Map<String, dynamic>) continue;
       final name = _normalizeLabel(
         _readString(nearbyPlace['name_en'],
@@ -1441,8 +1902,78 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
   }
 
   int get _totalMediaCount => _imagePaths.length + _videoPaths.length;
+  List<MediaGalleryItem> get _mediaItems => [
+        for (final path in _imagePaths)
+          MediaGalleryItem(source: path, isVideo: false),
+        for (final path in _videoPaths)
+          MediaGalleryItem(source: path, isVideo: true),
+      ];
+
+  Future<void> _showAddMediaOptions() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return SafeArea(
+          top: false,
+          child: Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Add media',
+                  style: GoogleFonts.lato(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                    letterSpacing: 0.54,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _MediaOptionButton(
+                  icon: Icons.photo_library_outlined,
+                  label: 'Choose Media',
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _pickGalleryMedia();
+                  },
+                ),
+                const SizedBox(height: 12),
+                _MediaOptionButton(
+                  icon: Icons.videocam_outlined,
+                  label: 'Choose Videos',
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _pickVideo();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _openMediaViewer({required int initialIndex}) {
+    final items = _mediaItems;
+    if (items.isEmpty) return;
+    showMediaGalleryViewer(
+      context,
+      items: items,
+      initialIndex: initialIndex,
+    );
+  }
 
   Widget _buildMediaManager({String? sectionTitle}) {
+    final items = _mediaItems;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1450,61 +1981,73 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
           _SectionTitle(sectionTitle),
           const SizedBox(height: 12),
         ],
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _pickImage,
-                icon: const Icon(Icons.image_outlined),
-                label: const Text('Add Photo'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _pickVideo,
-                icon: const Icon(Icons.videocam_outlined),
-                label: const Text('Add Video'),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (_totalMediaCount == 0)
-          Container(
+        if (items.isEmpty)
+          SizedBox(
             width: double.infinity,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: AppColors.greySoft1,
-              borderRadius: BorderRadius.circular(25),
-            ),
-            child: Text(
-              'You can add unlimited photos and videos.',
-              style: GoogleFonts.lato(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: AppColors.greyMedium,
-                letterSpacing: 0.36,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: _AddMediaTile(
+                    onTap: _showAddMediaOptions,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: 159,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Add media',
+                      textAlign: TextAlign.left,
+                      style: GoogleFonts.lato(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                        letterSpacing: 0.42,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           )
         else
           Wrap(
-            spacing: 10,
+            spacing: 9,
             runSpacing: 10,
             children: [
               for (var index = 0; index < _imagePaths.length; index += 1)
                 _MediaTile(
                   mediaPath: _imagePaths[index],
+                  onOpen: () => _openMediaViewer(initialIndex: index),
                   onRemove: () => _removeImage(index),
                 ),
               for (var index = 0; index < _videoPaths.length; index += 1)
                 _MediaTile(
                   mediaPath: _videoPaths[index],
+                  onOpen: () =>
+                      _openMediaViewer(initialIndex: _imagePaths.length + index),
                   onRemove: () => _removeVideo(index),
                 ),
+              _AddMediaTile(
+                onTap: _showAddMediaOptions,
+              ),
             ],
           ),
+        if (sectionTitle != null && items.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(
+            'Unlimited photos and videos.',
+            style: GoogleFonts.lato(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppColors.greyMedium,
+              letterSpacing: 0.36,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1513,41 +2056,6 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
-  }
-}
-
-class _AddEstateHeader extends StatelessWidget {
-  const _AddEstateHeader({required this.onBack});
-
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 50,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Text(
-            'Add Listing',
-            style: GoogleFonts.lato(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          Positioned(
-            left: 24,
-            child: _CircleActionButton(
-              icon: Icons.arrow_back_ios_new_rounded,
-              onTap: onBack,
-              background: AppColors.greySoft1,
-              iconSize: 18,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -1623,18 +2131,63 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
+class _MapFloatingActionButton extends StatelessWidget {
+  const _MapFloatingActionButton({
+    required this.icon,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.94),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x14000000),
+                blurRadius: 16,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Icon(icon, size: 20, color: AppColors.textPrimary),
+        ),
+      ),
+    );
+  }
+}
+
 class _InputCard extends StatelessWidget {
   const _InputCard({
     required this.controller,
     required this.hint,
     this.trailing,
     this.keyboardType,
+    this.focusNode,
+    this.onChanged,
+    this.onSubmitted,
+    this.textInputAction,
   });
 
   final TextEditingController controller;
   final String hint;
   final Widget? trailing;
   final TextInputType? keyboardType;
+  final FocusNode? focusNode;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+  final TextInputAction? textInputAction;
 
   @override
   Widget build(BuildContext context) {
@@ -1650,7 +2203,13 @@ class _InputCard extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controller,
+              focusNode: focusNode,
               keyboardType: keyboardType,
+              textInputAction: textInputAction,
+              onChanged: onChanged,
+              onSubmitted: onSubmitted,
+              onTapOutside: (_) =>
+                  FocusManager.instance.primaryFocus?.unfocus(),
               style: GoogleFonts.lato(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -1694,6 +2253,7 @@ class _DescriptionBox extends StatelessWidget {
         controller: controller,
         maxLines: null,
         expands: true,
+        onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
         style: GoogleFonts.lato(
           fontSize: 12,
           fontWeight: FontWeight.w500,
@@ -1858,10 +2418,12 @@ class _StatusToggle extends StatelessWidget {
 class _MediaTile extends StatelessWidget {
   const _MediaTile({
     required this.mediaPath,
+    this.onOpen,
     this.onRemove,
   });
 
   final String mediaPath;
+  final VoidCallback? onOpen;
   final VoidCallback? onRemove;
 
   @override
@@ -1869,44 +2431,50 @@ class _MediaTile extends StatelessWidget {
     final isVideo = mediaPath.toLowerCase().endsWith('.mp4') ||
         mediaPath.toLowerCase().endsWith('.mov') ||
         mediaPath.toLowerCase().endsWith('.webm') ||
-        mediaPath.toLowerCase().endsWith('.avi');
+        mediaPath.toLowerCase().endsWith('.avi') ||
+        mediaPath.toLowerCase().endsWith('.mkv') ||
+        mediaPath.toLowerCase().endsWith('.m4v');
     return Material(
       color: Colors.transparent,
       child: Ink(
-        width: 152,
-        height: 152,
+        width: 159,
+        height: 161,
         decoration: BoxDecoration(
-          color: AppColors.greySoft1,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(25),
+          border: Border.all(color: AppColors.greySoft1, width: 3),
         ),
         child: Stack(
           children: [
             Positioned.fill(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(25),
-                child: _ListingImage(imagePath: mediaPath),
+              child: GestureDetector(
+                onTap: onOpen,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(25),
+                  child: _ListingImage(imagePath: mediaPath),
+                ),
               ),
             ),
-            Positioned(
-              left: 12,
-              bottom: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.58),
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: Text(
-                  isVideo ? 'Video' : 'Photo',
-                  style: GoogleFonts.lato(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                    letterSpacing: 0.3,
+            if (isVideo)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Center(
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.28),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.play_arrow_rounded,
+                        size: 26,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
             Positioned(
               top: 0,
               right: 0,
@@ -1945,48 +2513,104 @@ class _ListingImage extends StatelessWidget {
     final isVideo = path.toLowerCase().endsWith('.mp4') ||
         path.toLowerCase().endsWith('.mov') ||
         path.toLowerCase().endsWith('.webm') ||
-        path.toLowerCase().endsWith('.avi');
-    if (isVideo) {
-      return Container(
-        color: AppColors.textSecondary.withValues(alpha: 0.12),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+        path.toLowerCase().endsWith('.avi') ||
+        path.toLowerCase().endsWith('.mkv') ||
+        path.toLowerCase().endsWith('.m4v');
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        MediaThumbnail(
+          item: MediaGalleryItem(source: path, isVideo: isVideo),
+        ),
+        if (isVideo)
+          Container(
+            color: Colors.black.withValues(alpha: 0.16),
+            alignment: Alignment.center,
+            child: const Icon(
+              Icons.play_circle_fill_rounded,
+              size: 42,
+              color: Colors.white,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _AddMediaTile extends StatelessWidget {
+  const _AddMediaTile({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(25),
+        child: Ink(
+          width: 159,
+          height: 161,
+          decoration: BoxDecoration(
+            color: AppColors.greySoft1,
+            borderRadius: BorderRadius.circular(25),
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.add,
+              size: 30,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MediaOptionButton extends StatelessWidget {
+  const _MediaOptionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: BoxDecoration(
+            color: AppColors.greySoft1,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Row(
             children: [
-              const Icon(
-                Icons.play_circle_fill_rounded,
-                size: 42,
-                color: AppColors.textSecondary,
-              ),
-              const SizedBox(height: 8),
+              Icon(icon, color: AppColors.textPrimary),
+              const SizedBox(width: 12),
               Text(
-                'Video',
+                label,
                 style: GoogleFonts.lato(
-                  fontSize: 12,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textSecondary,
-                  letterSpacing: 0.36,
+                  color: AppColors.textPrimary,
+                  letterSpacing: 0.42,
                 ),
               ),
             ],
           ),
         ),
-      );
-    }
-    if (path.startsWith('http://') || path.startsWith('https://')) {
-      return RemoteImage(
-        url: path,
-        fit: BoxFit.cover,
-        errorWidget: Container(color: AppColors.greySoft2),
-      );
-    }
-    return Image.file(
-      File(path),
-      fit: BoxFit.cover,
-      cacheWidth: 1600,
-      filterQuality: FilterQuality.low,
-      gaplessPlayback: true,
-      errorBuilder: (_, __, ___) => Container(color: AppColors.greySoft2),
+      ),
     );
   }
 }

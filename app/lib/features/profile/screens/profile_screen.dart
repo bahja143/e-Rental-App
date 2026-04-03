@@ -38,13 +38,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<_ProfileDashboardData> _loadPage() async {
     final profile = await ProfileRepository().getMyProfile();
-    final listings = await EstateRepository().getFeaturedEstates();
+    final estateRepository = EstateRepository();
+    final listings = await estateRepository.getMyListings();
     final soldListings = listings.where((_,) => false).toList();
     final synthesizedSold = soldListings.isEmpty && listings.length > 1
         ? [for (var i = 0; i < listings.length; i++) if (i.isOdd) listings[i]]
         : soldListings;
     final reviews = <_ProfileListingReview>[];
-    final estateRepository = EstateRepository();
     for (final listing in listings.take(3)) {
       final reviewMaps = await estateRepository.getListingReviews(listing.id);
       for (final review in reviewMaps.map(ListingReview.fromJson).take(2)) {

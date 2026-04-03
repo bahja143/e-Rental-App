@@ -11,6 +11,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/figma_tokens.dart';
 
 import '../../../shared/widgets/app_button.dart';
+import '../../../shared/widgets/media_gallery_viewer.dart';
 import '../../../shared/widgets/remote_image.dart';
 import '../data/models/estate_item.dart';
 import '../widgets/listing_detail_map_preview.dart';
@@ -121,6 +122,24 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
     );
   }
 
+  void _openMediaViewer(_EstateDetailData data, {int initialIndex = 0}) {
+    final items = <MediaGalleryItem>[
+      for (final url in data.imageUrls)
+        MediaGalleryItem(source: url, isVideo: false),
+      for (final url in data.videoUrls)
+        MediaGalleryItem(source: url, isVideo: true),
+    ];
+    if (items.isEmpty) return;
+    showMediaGalleryViewer(
+      context,
+      items: items,
+      initialIndex: initialIndex,
+      footerTitle: data.agentName.isNotEmpty ? data.agentName : data.title,
+      footerAvatarUrl: data.agentAvatarUrl,
+      footerRating: data.rating > 0 ? data.rating : null,
+    );
+  }
+
   bool _effectiveShowRent(_EstateDetailData data) {
     if (_listingTypeRentOverride != null) {
       final wantRent = _listingTypeRentOverride!;
@@ -143,11 +162,13 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
     final listing = await repo.getEstateById(widget.estateId);
     final nearby = await repo.getNearbyFromEstate(widget.estateId);
     final reviews = await repo.getListingReviews(widget.estateId);
+    final listingPlaces = await repo.getListingPlaces(widget.estateId);
 
     return _EstateDetailData.fromApi(
       listing: listing,
       nearby: nearby,
       reviews: reviews,
+      listingPlaces: listingPlaces,
       widgetFallback: widget,
     );
   }
@@ -223,7 +244,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
                     const SizedBox(height: 12),
                     _buildDistanceRow(context, data),
                     const SizedBox(height: 12),
-                    _buildPublicFacilityPills(),
+                    _buildPublicFacilityPillsForData(data),
                     const SizedBox(height: 12),
                     _buildMapCard(context, data),
                     const SizedBox(height: 28),
@@ -233,8 +254,8 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
                     const SizedBox(height: 28),
                     _buildDescriptionSection(data),
                     const SizedBox(height: 28),
-                    _buildCostOfLivingSection(),
-                    const SizedBox(height: 28),
+                    _buildPropertyDetailsSection(data),
+                    if (data.hasExtraPropertyDetails) const SizedBox(height: 28),
                     // Figma `28:4577` — **Reviews**: title → summary card → preview rows → **View all** last.
                     _buildSectionTitle('Reviews'),
                     const SizedBox(height: 12),
@@ -380,12 +401,15 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
               controller: _heroPageController,
               itemCount: heroUrls.length,
               onPageChanged: (i) => setState(() => _heroPageIndex = i),
-              itemBuilder: (_, i) => RemoteImage(
-                url: heroUrls[i],
-                fit: BoxFit.cover,
-                errorWidget: Container(
-                  color: AppColors.greySoft1,
-                  child: const Icon(Icons.home_work_outlined, size: 64, color: AppColors.greyBarelyMedium),
+              itemBuilder: (_, i) => GestureDetector(
+                onTap: () => _openMediaViewer(data, initialIndex: i),
+                child: RemoteImage(
+                  url: heroUrls[i],
+                  fit: BoxFit.cover,
+                  errorWidget: Container(
+                    color: AppColors.greySoft1,
+                    child: const Icon(Icons.home_work_outlined, size: 64, color: AppColors.greyBarelyMedium),
+                  ),
                 ),
               ),
             ),
@@ -950,15 +974,26 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
   }
 
   Widget _buildRoomFeaturePills(_EstateDetailData data) {
+    final pills = <(IconData, String, bool)>[
+      (Icons.bed_outlined, '${data.bedrooms} Bedroom', false),
+      (Icons.bathtub_outlined, '${data.bathrooms} Bathroom', false),
+      if (data.livingRooms > 0)
+        (Icons.weekend_outlined, '${data.livingRooms} Living Room', false),
+      if (data.kitchens > 0)
+        (Icons.kitchen_outlined, '${data.kitchens} Kitchen', false),
+      if (data.floorAreaLabel != null)
+        (Icons.square_foot_outlined, data.floorAreaLabel!, true),
+      if (data.numberOfFloors > 0)
+        (Icons.layers_outlined, '${data.numberOfFloors} Floors', true),
+    ];
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _roomFeaturePill(Icons.bed_outlined, '${data.bedrooms} Bedroom'),
-          const SizedBox(width: 10),
-          _roomFeaturePill(Icons.bathtub_outlined, '${data.bathrooms} Bathroom'),
-          const SizedBox(width: 10),
-          _roomFeaturePill(Icons.square_foot_outlined, 'Floor plan', accent: true),
+          for (var i = 0; i < pills.length; i++) ...[
+            _roomFeaturePill(pills[i].$1, pills[i].$2, accent: pills[i].$3),
+            if (i != pills.length - 1) const SizedBox(width: 10),
+          ],
         ],
       ),
     );
@@ -1003,7 +1038,7 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
     final rootContext = context;
     final secondSuffix = data.nearby.isNotEmpty
         ? data.nearby.first.location
-        : 'Petompon, Kota Semarang, Jawa Tengah 50232';
+        : data.location;
 
     showModalBottomSheet<void>(
       context: context,
@@ -1118,16 +1153,26 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
     );
   }
 
-  Widget _buildPublicFacilityPills() {
+  Widget _buildPublicFacilityPillsForData(_EstateDetailData data) {
+    final entries = data.nearbyPlaceLabels;
+    if (entries.isEmpty) {
+      return Text(
+        'No nearby place data.',
+        style: GoogleFonts.raleway(
+          fontSize: 12,
+          color: FigmaHantiRiyoTokens.exploreSearchTextList,
+          letterSpacing: 0.36,
+        ),
+      );
+    }
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _publicFacilityTag('2 Hospital'),
-          const SizedBox(width: 10),
-          _publicFacilityTag('4 Gas stations'),
-          const SizedBox(width: 10),
-          _publicFacilityTag('2 Schools'),
+          for (var i = 0; i < entries.length; i++) ...[
+            _publicFacilityTag(entries[i]),
+            if (i != entries.length - 1) const SizedBox(width: 10),
+          ],
         ],
       ),
     );
@@ -1170,10 +1215,59 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
 
   /// **Figma `28:4593`** — real map, custom pin ([`createMapPinDescriptor`]), frosted footer.
   Widget _buildMapCard(BuildContext context, _EstateDetailData data) {
-    final target = LatLng(data.mapLat, data.mapLng);
     final locLine = data.location.trim().isNotEmpty
         ? data.location.trim()
         : (data.title.trim().isNotEmpty ? data.title.trim() : 'Property location');
+    if (!data.hasPreciseMap) {
+      return Container(
+        height: 235,
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AppColors.greySoft1,
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.location_on_outlined,
+                color: AppColors.textSecondary,
+                size: 22,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              'General location',
+              style: GoogleFonts.lato(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: FigmaHantiRiyoTokens.exploreSearchTextTitle,
+                letterSpacing: 0.42,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              locLine,
+              style: GoogleFonts.raleway(
+                fontSize: 14,
+                height: 24 / 14,
+                color: FigmaHantiRiyoTokens.exploreSearchTextList,
+                letterSpacing: 0.42,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    final target = LatLng(data.mapLat, data.mapLng);
     return ListingDetailMapPreview(
       target: target,
       imageUrl: data.imageUrl,
@@ -1195,6 +1289,16 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
   }
 
   Widget _buildDescriptionSection(_EstateDetailData data) {
+    final metadata = <String>[
+      if (data.propertyTypeLabel.isNotEmpty)
+        'Property Type: ${data.propertyTypeLabel}',
+      if (data.finishStateLabel != null)
+        'Property Condition: ${data.finishStateLabel}',
+      if ((data.constructionYear ?? 0) > 0)
+        'Construction Year: ${data.constructionYear}',
+      if (data.floorAreaLabel != null)
+        'Floor Area: ${data.floorAreaLabel}',
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1208,26 +1312,21 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        Text(
-          'Property Condition:  New',
-          style: GoogleFonts.raleway(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: FigmaHantiRiyoTokens.exploreSearchTextTitle,
-            letterSpacing: 0.42,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Ownership Type: freehold / leasehold',
-          style: GoogleFonts.raleway(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: FigmaHantiRiyoTokens.exploreSearchTextTitle,
-            letterSpacing: 0.42,
-          ),
-        ),
-        const SizedBox(height: 12),
+        if (metadata.isNotEmpty) ...[
+          for (var i = 0; i < metadata.length; i++) ...[
+            Text(
+              metadata[i],
+              style: GoogleFonts.raleway(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: FigmaHantiRiyoTokens.exploreSearchTextTitle,
+                letterSpacing: 0.42,
+              ),
+            ),
+            if (i != metadata.length - 1) const SizedBox(height: 6),
+          ],
+          const SizedBox(height: 12),
+        ],
         Text(
           data.description,
           style: GoogleFonts.raleway(
@@ -1241,24 +1340,27 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
     );
   }
 
-  Widget _buildCostOfLivingSection() {
+  Widget _buildPropertyDetailsSection(_EstateDetailData data) {
+    final details = <String>[
+      if (data.numberOfFloors > 0) 'Floors: ${data.numberOfFloors}',
+      if (data.livingRooms > 0) 'Living rooms: ${data.livingRooms}',
+      if (data.kitchens > 0) 'Kitchens: ${data.kitchens}',
+      if (data.bedrooms > 0) 'Bedrooms: ${data.bedrooms}',
+      if (data.bathrooms > 0) 'Bathrooms: ${data.bathrooms}',
+      if (data.finishStateLabel != null) 'Status: ${data.finishStateLabel}',
+    ];
+    if (details.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              'Cost of Living',
-              style: GoogleFonts.lato(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: FigmaHantiRiyoTokens.exploreSearchTextTitle,
-                letterSpacing: 0.54,
-              ),
-            ),
-            const Spacer(),
-           
-          ],
+        Text(
+          'Property Details',
+          style: GoogleFonts.lato(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: FigmaHantiRiyoTokens.exploreSearchTextTitle,
+            letterSpacing: 0.54,
+          ),
         ),
         const SizedBox(height: 12),
         Container(
@@ -1271,37 +1373,17 @@ class _EstateDetailScreenState extends State<EstateDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: '\$ 830',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: FigmaHantiRiyoTokens.exploreSearchTextTitle,
-                      ),
-                    ),
-                    TextSpan(
-                      text: '/month*',
-                      style: GoogleFonts.raleway(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: FigmaHantiRiyoTokens.exploreSearchTextTitle,
-                      ),
-                    ),
-                  ],
+              for (var i = 0; i < details.length; i++) ...[
+                Text(
+                  details[i],
+                  style: GoogleFonts.raleway(
+                    fontSize: 14,
+                    color: FigmaHantiRiyoTokens.exploreSearchTextList,
+                    letterSpacing: 0.42,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '*From average citizen spend around this location',
-                style: GoogleFonts.raleway(
-                  fontSize: 10,
-                  color: FigmaHantiRiyoTokens.exploreSearchTextList,
-                  letterSpacing: 0.27,
-                ),
-              ),
+                if (i != details.length - 1) const SizedBox(height: 8),
+              ],
             ],
           ),
         ),
@@ -1778,14 +1860,22 @@ class _EstateDetailData {
     required this.sellPrice,
     required this.imageUrl,
     required this.imageUrls,
+    required this.videoUrls,
     required this.propertyTypeLabel,
     required this.isRent,
     required this.isForSale,
     required this.bedrooms,
     required this.bathrooms,
+    required this.livingRooms,
+    required this.kitchens,
+    required this.numberOfFloors,
+    this.floorArea,
+    this.constructionYear,
+    this.isFinished,
     required this.reviewCount,
     required this.description,
     required this.facilities,
+    required this.nearbyPlaceLabels,
     required this.agentName,
     required this.agentAvatarUrl,
     required this.rating,
@@ -1795,20 +1885,37 @@ class _EstateDetailData {
     this.longitude,
   });
 
-  /// Mogadishu — used when API omits coordinates so the map still renders.
-  static const double _fallbackMapLat = 2.0469;
-  static const double _fallbackMapLng = 45.3182;
-
   bool get hasRentOption => rentPrice > 0;
   bool get hasSellOption => sellPrice > 0;
+  bool get hasPreciseMap => latitude != null && longitude != null;
+  bool get hasExtraPropertyDetails =>
+      numberOfFloors > 0 ||
+      livingRooms > 0 ||
+      kitchens > 0 ||
+      finishStateLabel != null;
+  String? get floorAreaLabel {
+    final area = floorArea;
+    if (area == null || area <= 0) return null;
+    final rounded = area.roundToDouble();
+    final value =
+        rounded == area ? rounded.toInt().toString() : area.toString();
+    return '$value sqft';
+  }
 
-  double get mapLat => latitude ?? _fallbackMapLat;
-  double get mapLng => longitude ?? _fallbackMapLng;
+  String? get finishStateLabel {
+    final value = isFinished;
+    if (value == null) return null;
+    return value ? 'Finished' : 'Unfinished';
+  }
+
+  double get mapLat => latitude!;
+  double get mapLng => longitude!;
 
   factory _EstateDetailData.fromApi({
     required Map<String, dynamic>? listing,
     required List<EstateItem> nearby,
     required List<Map<String, dynamic>> reviews,
+    required List<Map<String, dynamic>> listingPlaces,
     required EstateDetailScreen widgetFallback,
   }) {
     final data = listing ?? <String, dynamic>{};
@@ -1818,6 +1925,14 @@ class _EstateDetailData {
       for (final u in images) {
         final s = '$u'.trim();
         if (s.isNotEmpty) imageUrls.add(s);
+      }
+    }
+    final videos = data['videos'];
+    final videoUrls = <String>[];
+    if (videos is List) {
+      for (final u in videos) {
+        final s = '$u'.trim();
+        if (s.isNotEmpty) videoUrls.add(s);
       }
     }
     String imageUrl = widgetFallback.imageUrl;
@@ -1846,21 +1961,56 @@ class _EstateDetailData {
 
     var bedrooms = _toInt(data['bedrooms'] ?? data['bedroom_count']);
     var bathrooms = _toInt(data['bathrooms'] ?? data['bathroom_count']);
+    var livingRooms = 0;
+    var kitchens = 0;
+    var numberOfFloors = 0;
+    double? floorArea;
+    int? constructionYear;
+    bool? isFinished;
     final listingFeatures = data['listingFeatures'];
     if (listingFeatures is List) {
       for (final item in listingFeatures.whereType<Map<String, dynamic>>()) {
         final feature = item['propertyFeature'];
         if (feature is! Map<String, dynamic>) continue;
-        final name = '${feature['name_en'] ?? feature['name_so'] ?? ''}'.toLowerCase();
+        final name = _normalizeLabel(
+          '${feature['name_en'] ?? feature['name_so'] ?? ''}',
+        );
         final value = _toInt(item['value']);
+        final rawValue = '${item['value'] ?? ''}'.trim();
         if (name.contains('bedroom') && bedrooms <= 0) bedrooms = value;
         if (name.contains('bathroom') && bathrooms <= 0) bathrooms = value;
+        if (name.contains('living room')) livingRooms = value;
+        if (name.contains('kitchen')) kitchens = value;
+        if (name.contains('number of floors') || name == 'floors') {
+          numberOfFloors = value;
+        }
+        if (name.contains('floor area') || name == 'area') {
+          floorArea = _toDoubleOrNull(rawValue);
+        }
+        if (name.contains('construction year') || name.contains('year built')) {
+          constructionYear = value;
+        }
+        if (name.contains('finish state') ||
+            name.contains('finished') ||
+            name == 'status') {
+          if (rawValue.isNotEmpty) {
+            isFinished = !_normalizeLabel(rawValue).contains('unfinished');
+          }
+        }
       }
     }
 
     var propertyTypeLabel = '';
+    final categories = data['propertyCategories'] ?? data['property_categories'];
+    if (categories is List && categories.isNotEmpty) {
+      final first = categories.first;
+      if (first is Map) {
+        final t = '${first['name_en'] ?? first['name_so'] ?? ''}'.trim();
+        if (t.isNotEmpty) propertyTypeLabel = t;
+      }
+    }
     final types = data['listingTypes'] ?? data['listing_types'];
-    if (types is List && types.isNotEmpty) {
+    if (propertyTypeLabel.isEmpty && types is List && types.isNotEmpty) {
       final first = types.first;
       if (first is Map) {
         final t = '${first['name_en'] ?? first['name_so'] ?? ''}'.trim();
@@ -1872,12 +2022,22 @@ class _EstateDetailData {
     final listingFacilities = data['listingFacilities'];
     if (listingFacilities is List) {
       for (final item in listingFacilities.whereType<Map<String, dynamic>>()) {
-        final facility = item['facility'];
+        final facility = item['facility'] ?? item['listingFacility'] ?? item['listing_facility'];
         if (facility is Map<String, dynamic>) {
           final name = '${facility['name_en'] ?? facility['name_so'] ?? ''}'.trim();
           if (name.isNotEmpty) facilities.add(name);
         }
       }
+    }
+
+    final nearbyPlaceLabels = <String>[];
+    for (final item in listingPlaces) {
+      final nearbyPlace = item['nearbyPlace'] ?? item['nearby_place'];
+      if (nearbyPlace is! Map<String, dynamic>) continue;
+      final name = '${nearbyPlace['name_en'] ?? nearbyPlace['name_so'] ?? ''}'.trim();
+      if (name.isEmpty) continue;
+      final value = _toInt(item['value']);
+      nearbyPlaceLabels.add(value > 0 ? '$value $name' : name);
     }
 
     final reviewItems = reviews.map(ListingReview.fromJson).toList();
@@ -1901,16 +2061,24 @@ class _EstateDetailData {
       sellPrice: sellPrice,
       imageUrl: imageUrl,
       imageUrls: imageUrls,
+      videoUrls: videoUrls,
       propertyTypeLabel: propertyTypeLabel,
       isRent: isRent,
       isForSale: isForSale,
       bedrooms: bedrooms,
       bathrooms: bathrooms,
+      livingRooms: livingRooms,
+      kitchens: kitchens,
+      numberOfFloors: numberOfFloors,
+      floorArea: floorArea,
+      constructionYear: constructionYear,
+      isFinished: isFinished,
       reviewCount: reviewItems.length,
       description: '${data['description'] ?? widgetFallback.description ?? ''}'.trim().isEmpty
           ? 'No description provided.'
           : '${data['description'] ?? widgetFallback.description}',
       facilities: facilities,
+      nearbyPlaceLabels: nearbyPlaceLabels,
       agentName: '${userMap['name'] ?? ''}',
       agentAvatarUrl: '${userMap['profile_picture_url'] ?? ''}',
       rating: avgRating,
@@ -1928,14 +2096,22 @@ class _EstateDetailData {
   final double sellPrice;
   final String imageUrl;
   final List<String> imageUrls;
+  final List<String> videoUrls;
   final String propertyTypeLabel;
   final bool isRent;
   final bool isForSale;
   final int bedrooms;
   final int bathrooms;
+  final int livingRooms;
+  final int kitchens;
+  final int numberOfFloors;
+  final double? floorArea;
+  final int? constructionYear;
+  final bool? isFinished;
   final int reviewCount;
   final String description;
   final List<String> facilities;
+  final List<String> nearbyPlaceLabels;
   final String agentName;
   final String agentAvatarUrl;
   final double rating;
@@ -1963,5 +2139,18 @@ class _EstateDetailData {
     if (value is int) return value;
     if (value is num) return value.toInt();
     return int.tryParse('$value') ?? 0;
+  }
+
+  static double? _toDoubleOrNull(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse('$value');
+  }
+
+  static String _normalizeLabel(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll('&', 'and')
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .trim();
   }
 }

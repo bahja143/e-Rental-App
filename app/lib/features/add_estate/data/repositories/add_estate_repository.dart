@@ -98,10 +98,11 @@ class AddEstateRepository {
   Map<String, dynamic> _buildListingPayload(
       EstateDraft draft, List<String> uploadedImages, List<String> uploadedVideos) {
     final isSellListing = draft.listingType == 'sell';
+    final address = draft.location.trim();
     return {
       'title': draft.title,
       'description': draft.description,
-      'address': draft.location,
+      'address': address.isEmpty ? null : address,
       'lat': draft.lat,
       'lng': draft.lng,
       'sell_price': isSellListing ? draft.pricePerMonth.round() : null,
@@ -121,7 +122,15 @@ class AddEstateRepository {
 
   Future<void> _syncListingCategory(int listingId, String categoryLabel) async {
     final categoryIds = await _getPropertyCategoryIds();
-    final categoryId = _findReferenceId(categoryIds, [categoryLabel]);
+    final categoryId = await _ensureReferenceId(
+      idsByName: categoryIds,
+      path: '/property-categories',
+      aliases: [categoryLabel],
+      createBody: {
+        'name_en': categoryLabel.trim(),
+        'name_so': categoryLabel.trim(),
+      },
+    );
     if (categoryId == null) return;
 
     final currentRows = await _getAssocRows(
@@ -162,43 +171,91 @@ class AddEstateRepository {
     final featureIds = await _getPropertyFeatureIds();
     final desiredByFeatureId = <int, String>{};
 
-    void putFeature(List<String> aliases, String value) {
+    Future<void> putFeature(
+      List<String> aliases,
+      String value, {
+      required String nameEn,
+      required String type,
+    }) async {
       final trimmed = value.trim();
       if (trimmed.isEmpty) return;
-      final featureId = _findReferenceId(featureIds, aliases);
+      final featureId = await _ensureReferenceId(
+        idsByName: featureIds,
+        path: '/property-features',
+        aliases: aliases,
+        createBody: {
+          'name_en': nameEn,
+          'name_so': nameEn,
+          'type': type,
+        },
+      );
       if (featureId != null) {
         desiredByFeatureId[featureId] = trimmed;
       }
     }
 
     if (draft.bedrooms > 0) {
-      putFeature(const ['Bedrooms', 'Bedroom'], '${draft.bedrooms}');
+      await putFeature(
+        const ['Bedrooms', 'Bedroom'],
+        '${draft.bedrooms}',
+        nameEn: 'Bedroom',
+        type: 'number',
+      );
     }
     if (draft.bathrooms > 0) {
-      putFeature(const ['Bathrooms', 'Bathroom'], '${draft.bathrooms}');
+      await putFeature(
+        const ['Bathrooms', 'Bathroom'],
+        '${draft.bathrooms}',
+        nameEn: 'Bathroom',
+        type: 'number',
+      );
     }
     if (draft.livingRooms > 0) {
-      putFeature(const ['Living Rooms', 'Living Room'], '${draft.livingRooms}');
+      await putFeature(
+        const ['Living Rooms', 'Living Room'],
+        '${draft.livingRooms}',
+        nameEn: 'Living Room',
+        type: 'number',
+      );
     }
     if (draft.kitchens > 0) {
-      putFeature(const ['Kitchens', 'Kitchen'], '${draft.kitchens}');
+      await putFeature(
+        const ['Kitchens', 'Kitchen'],
+        '${draft.kitchens}',
+        nameEn: 'Kitchen',
+        type: 'number',
+      );
     }
     if (draft.numberOfFloors > 0) {
-      putFeature(
+      await putFeature(
         const ['Number of Floors', 'Floors'],
         '${draft.numberOfFloors}',
+        nameEn: 'Number of Floors',
+        type: 'number',
       );
     }
     if (draft.floorArea != null && draft.floorArea! > 0) {
-      putFeature(
-          const ['Floor Area', 'Area'], _trimTrailingZero(draft.floorArea!));
+      await putFeature(
+        const ['Floor Area', 'Area'],
+        _trimTrailingZero(draft.floorArea!),
+        nameEn: 'Area',
+        type: 'string',
+      );
     }
     if (draft.constructionYear != null && draft.constructionYear! > 0) {
-      putFeature(const ['Construction Year', 'Year Built'],
-          '${draft.constructionYear}');
+      await putFeature(
+        const ['Construction Year', 'Year Built'],
+        '${draft.constructionYear}',
+        nameEn: 'Construction Year',
+        type: 'number',
+      );
     }
-    putFeature(const ['Finish State', 'Finished', 'Status'],
-        draft.isFinished ? 'Finished' : 'Unfinished');
+    await putFeature(
+      const ['Finish State', 'Finished', 'Status'],
+      draft.isFinished ? 'Finished' : 'Unfinished',
+      nameEn: 'Finish State',
+      type: 'string',
+    );
 
     final currentRows = await _getAssocRows(
         '/listing-features', {'listing_id': listingId, 'limit': 100});
@@ -242,7 +299,15 @@ class AddEstateRepository {
     final facilityIds = await _getFacilityIds();
     final desiredByFacilityId = <int, String>{};
     for (final amenity in amenities) {
-      final facilityId = _findReferenceId(facilityIds, [amenity]);
+      final facilityId = await _ensureReferenceId(
+        idsByName: facilityIds,
+        path: '/facilities',
+        aliases: [amenity],
+        createBody: {
+          'name_en': amenity.trim(),
+          'name_so': amenity.trim(),
+        },
+      );
       if (facilityId != null) {
         desiredByFacilityId[facilityId] = 'Available';
       }
@@ -291,7 +356,15 @@ class AddEstateRepository {
     final desiredByPlaceId = <int, String>{};
     for (final entry in nearbyPlaces.entries) {
       if (entry.value <= 0) continue;
-      final nearbyPlaceId = _findReferenceId(nearbyPlaceIds, [entry.key]);
+      final nearbyPlaceId = await _ensureReferenceId(
+        idsByName: nearbyPlaceIds,
+        path: '/nearby-places',
+        aliases: [entry.key],
+        createBody: {
+          'name_en': entry.key.trim(),
+          'name_so': entry.key.trim(),
+        },
+      );
       if (nearbyPlaceId != null) {
         desiredByPlaceId[nearbyPlaceId] = '${entry.value}';
       }
@@ -395,6 +468,61 @@ class AddEstateRepository {
       }
     }
     return null;
+  }
+
+  Future<int?> _ensureReferenceId({
+    required Map<String, int> idsByName,
+    required String path,
+    required List<String> aliases,
+    required Map<String, dynamic> createBody,
+  }) async {
+    final existing = _findReferenceId(idsByName, aliases);
+    if (existing != null) return existing;
+
+    try {
+      final created = await _apiClient.postJson(path, body: createBody);
+      final id = _asInt(created['id']);
+      if (id != null) {
+        _indexReferenceId(idsByName, id, aliases);
+        _indexReferenceId(idsByName, id, [
+          '${created['name_en'] ?? ''}',
+          '${created['name_so'] ?? ''}',
+        ]);
+        return id;
+      }
+    } catch (_) {
+      // Another client or an earlier request may already have created it.
+    }
+
+    try {
+      final refreshed = await _loadReferenceIds(path);
+      idsByName
+        ..clear()
+        ..addAll(refreshed);
+    } catch (_) {
+      // Keep the in-memory cache as-is if refresh fails.
+    }
+    return _findReferenceId(idsByName, aliases);
+  }
+
+  void _indexReferenceId(
+    Map<String, int> idsByName,
+    int id,
+    List<String> names,
+  ) {
+    for (final name in names) {
+      final normalized = _normalizeName(name);
+      if (normalized.isEmpty) continue;
+      idsByName[normalized] = id;
+      if (normalized.endsWith('s')) {
+        final singular = normalized.substring(0, normalized.length - 1);
+        if (singular.isNotEmpty) {
+          idsByName[singular] = id;
+        }
+      } else {
+        idsByName['${normalized}s'] = id;
+      }
+    }
   }
 
   Future<void> _safeDelete(String path) async {

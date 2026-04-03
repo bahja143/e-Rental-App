@@ -291,14 +291,23 @@ const createListing = async (req, res) => {
     const sanitizedTitle = title?.trim();
     const sanitizedAddress = address?.trim();
     const sanitizedDescription = description?.trim();
+    const hasLat = lat !== undefined && lat !== null && `${lat}`.trim() !== '';
+    const hasLng = lng !== undefined && lng !== null && `${lng}`.trim() !== '';
 
     // Validate required fields
-    if (!sanitizedTitle || lat === undefined || lng === undefined || !sanitizedAddress) {
+    if (!sanitizedTitle || !hasLat || !hasLng || !sanitizedAddress) {
       return res.status(400).json({ error: 'title, lat, lng, and address are required' });
     }
 
+    const latNum = Number.parseFloat(lat);
+    const lngNum = Number.parseFloat(lng);
+
+    if (!Number.isFinite(latNum) || !Number.isFinite(lngNum)) {
+      return res.status(400).json({ error: 'lat and lng must be valid numbers' });
+    }
+
     // Validate coordinates
-    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    if (latNum < -90 || latNum > 90 || lngNum < -180 || lngNum > 180) {
       return res.status(400).json({ error: 'Invalid latitude or longitude values' });
     }
 
@@ -321,8 +330,8 @@ const createListing = async (req, res) => {
     const createData = {
       user_id: userId,
       title: sanitizedTitle,
-      lat: parseFloat(lat),
-      lng: parseFloat(lng),
+      lat: latNum,
+      lng: lngNum,
       address: sanitizedAddress,
       images: images || [],
       videos: videos || [],
@@ -367,12 +376,28 @@ const updateListing = async (req, res) => {
     const sanitizedTitle = title?.trim();
     const sanitizedAddress = address?.trim();
     const sanitizedDescription = description?.trim();
+    const hasLat = lat !== undefined && lat !== null && `${lat}`.trim() !== '';
+    const hasLng = lng !== undefined && lng !== null && `${lng}`.trim() !== '';
+
+    if (hasLat !== hasLng) {
+      return res.status(400).json({ error: 'Both lat and lng must be provided together' });
+    }
+
+    let latNum;
+    let lngNum;
+    if (hasLat && hasLng) {
+      latNum = Number.parseFloat(lat);
+      lngNum = Number.parseFloat(lng);
+      if (!Number.isFinite(latNum) || !Number.isFinite(lngNum)) {
+        return res.status(400).json({ error: 'lat and lng must be valid numbers' });
+      }
+    }
 
     // Validate coordinates if provided
-    if (lat !== undefined && (lat < -90 || lat > 90)) {
+    if (latNum !== undefined && (latNum < -90 || latNum > 90)) {
       return res.status(400).json({ error: 'Invalid latitude value' });
     }
-    if (lng !== undefined && (lng < -180 || lng > 180)) {
+    if (lngNum !== undefined && (lngNum < -180 || lngNum > 180)) {
       return res.status(400).json({ error: 'Invalid longitude value' });
     }
 
@@ -395,8 +420,8 @@ const updateListing = async (req, res) => {
     const updateData = {};
     if (sanitizedTitle) updateData.title = sanitizedTitle;
     // Location will be updated by model hooks if lat/lng change
-    if (lat !== undefined) updateData.lat = parseFloat(lat);
-    if (lng !== undefined) updateData.lng = parseFloat(lng);
+    if (latNum !== undefined) updateData.lat = latNum;
+    if (lngNum !== undefined) updateData.lng = lngNum;
     if (sanitizedAddress) updateData.address = sanitizedAddress;
     if (images !== undefined) updateData.images = images;
     if (videos !== undefined) updateData.videos = videos;

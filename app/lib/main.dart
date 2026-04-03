@@ -44,8 +44,21 @@ void main() async {
   runApp(const HantiRiyoApp());
 }
 
-class HantiRiyoApp extends StatelessWidget {
+class HantiRiyoApp extends StatefulWidget {
   const HantiRiyoApp({super.key});
+
+  @override
+  State<HantiRiyoApp> createState() => _HantiRiyoAppState();
+}
+
+class _HantiRiyoAppState extends State<HantiRiyoApp> {
+  late final _router = createAppRouter();
+
+  @override
+  void dispose() {
+    _router.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +79,7 @@ class HantiRiyoApp extends StatelessWidget {
               title: 'Hanti riyo',
               debugShowCheckedModeBanner: false,
               theme: AppTheme.lightTheme,
-              routerConfig: createAppRouter(),
+              routerConfig: _router,
               builder: (context, child) {
                 final mq = MediaQuery.of(context);
                 if (identical(mq.textScaler, minScaler)) {

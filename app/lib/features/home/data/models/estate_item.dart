@@ -9,6 +9,8 @@ class EstateItem {
     this.category,
     this.lat,
     this.lng,
+    this.rentPrice,
+    this.sellPrice,
   });
 
   final String id;
@@ -20,8 +22,12 @@ class EstateItem {
   final String? category;
   final double? lat;
   final double? lng;
+  final double? rentPrice;
+  final double? sellPrice;
 
   bool get hasCoordinates => lat != null && lng != null;
+  bool get hasRentOption => (rentPrice ?? 0) > 0;
+  bool get hasSellOption => (sellPrice ?? 0) > 0;
 
   /// Derive category from title when not provided (e.g. "Sky Dandelions Apartment" -> "Apartment").
   String? get displayCategory {

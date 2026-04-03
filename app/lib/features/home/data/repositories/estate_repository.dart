@@ -8,9 +8,28 @@ class EstateRepository {
   EstateRepository({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
 
   static Set<String>? _savedIdsCache;
+  static String? _savedIdsCacheUserId;
+  static List<dynamic>? _publicListingsCache;
+  static DateTime? _publicListingsCacheAt;
+  static Future<List<dynamic>>? _publicListingsInFlight;
+  static const Duration _publicListingsCacheTtl = Duration(seconds: 30);
   final ApiClient _apiClient;
 
+  String? _currentUserId() {
+    final userId = ApiSession.currentUserId?.trim();
+    return userId == null || userId.isEmpty ? null : userId;
+  }
+
+  void _invalidateSavedIdsCacheIfUserChanged() {
+    final userId = _currentUserId();
+    if (_savedIdsCacheUserId != userId) {
+      _savedIdsCacheUserId = userId;
+      _savedIdsCache = null;
+    }
+  }
+
   Future<List<EstateItem>> getSavedEstates() async {
+    _invalidateSavedIdsCacheIfUserChanged();
     try {
       final favourites = await _apiClient.getJsonList('/favourites', query: {'limit': 50});
       final listingIds = favourites
@@ -44,7 +63,8 @@ class EstateRepository {
   }
 
   Future<bool> removeSavedEstate(String listingId) async {
-    final userId = ApiSession.currentUserId;
+    _invalidateSavedIdsCacheIfUserChanged();
+    final userId = _currentUserId();
     if (userId == null || userId.isEmpty || listingId.isEmpty) {
       return false;
     }
@@ -58,6 +78,7 @@ class EstateRepository {
   }
 
   Future<bool> addSavedEstate(String listingId) async {
+    _invalidateSavedIdsCacheIfUserChanged();
     if (listingId.isEmpty) return false;
     try {
       await _apiClient.postJson('/favourites', body: {
@@ -80,6 +101,7 @@ class EstateRepository {
   }
 
   Future<Set<String>> getSavedEstateIds({bool forceRefresh = false}) async {
+    _invalidateSavedIdsCacheIfUserChanged();
     if (!forceRefresh && _savedIdsCache != null) {
       return Set<String>.from(_savedIdsCache!);
     }
@@ -99,20 +121,34 @@ class EstateRepository {
     }
   }
 
+  Future<List<EstateItem>> getMyListings({int limit = 100}) async {
+    final userId = _currentUserId();
+    if (userId == null) return const <EstateItem>[];
+    try {
+      final response = await _apiClient.getJsonList('/listings', query: {
+        'user_id': userId,
+        'limit': limit,
+        'include': 'types,categories',
+      });
+      return _parseEstates(response);
+    } catch (_) {}
+    return const <EstateItem>[];
+  }
+
   Future<List<EstateItem>> getFeaturedEstates() async {
     try {
-      final response = await _apiClient.getJsonList('/public/listings', query: {'limit': 20});
+      final response = await _getPublicListingsSnapshot(limit: 40);
       final estates = _parseEstates(response);
-      return estates;
+      return estates.take(20).toList();
     } catch (_) {}
     return const <EstateItem>[];
   }
 
   Future<List<EstateItem>> getNearbyEstates() async {
     try {
-      final response = await _apiClient.getJsonList('/public/listings', query: {'limit': 20});
+      final response = await _getPublicListingsSnapshot(limit: 40);
       final estates = _parseEstates(response);
-      return estates;
+      return estates.take(20).toList();
     } catch (_) {}
     return const <EstateItem>[];
   }
@@ -172,7 +208,7 @@ class EstateRepository {
 
   Future<List<TopLocationItem>> getTopLocations() async {
     try {
-      final response = await _apiClient.getJsonList('/public/listings', query: {'limit': 40});
+      final response = await _getPublicListingsSnapshot(limit: 40);
       final byName = <String, TopLocationItem>{};
       for (final raw in response.whereType<Map<String, dynamic>>()) {
         final address = '${raw['address'] ?? ''}'.trim();
@@ -194,7 +230,7 @@ class EstateRepository {
 
   Future<List<TopAgentItem>> getTopAgents() async {
     try {
-      final response = await _apiClient.getJsonList('/public/listings', query: {'limit': 40});
+      final response = await _getPublicListingsSnapshot(limit: 40);
       final byId = <String, TopAgentItem>{};
       for (final raw in response.whereType<Map<String, dynamic>>()) {
         final user = raw['user'];
@@ -243,9 +279,21 @@ class EstateRepository {
     return const <Map<String, dynamic>>[];
   }
 
+  Future<List<Map<String, dynamic>>> getListingPlaces(String estateId) async {
+    if (estateId.trim().isEmpty) return const <Map<String, dynamic>>[];
+    try {
+      final response = await _apiClient.getJsonList(
+        '/listing-places',
+        query: {'listing_id': estateId, 'limit': 100},
+      );
+      return response.whereType<Map<String, dynamic>>().toList();
+    } catch (_) {}
+    return const <Map<String, dynamic>>[];
+  }
+
   Future<List<EstateItem>> getNearbyFromEstate(String estateId) async {
     try {
-      final response = await _apiClient.getJsonList('/public/listings', query: {'limit': 12});
+      final response = await _getPublicListingsSnapshot(limit: 40);
       final estates = response
           .whereType<Map<String, dynamic>>()
           .map(_toEstateItem)
@@ -255,6 +303,47 @@ class EstateRepository {
       return estates;
     } catch (_) {}
     return const <EstateItem>[];
+  }
+
+  Future<List<dynamic>> _getPublicListingsSnapshot({int limit = 40}) async {
+    final now = DateTime.now();
+    final cache = _publicListingsCache;
+    final cacheAt = _publicListingsCacheAt;
+    final hasFreshCache = cache != null &&
+        cacheAt != null &&
+        now.difference(cacheAt) <= _publicListingsCacheTtl;
+    if (hasFreshCache) {
+      return List<dynamic>.from(cache);
+    }
+
+    final inFlight = _publicListingsInFlight;
+    if (inFlight != null) {
+      try {
+        return List<dynamic>.from(await inFlight);
+      } catch (_) {
+        if (cache != null) return List<dynamic>.from(cache);
+        rethrow;
+      }
+    }
+
+    final request = _apiClient.getJsonList('/public/listings', query: {
+      'limit': limit,
+      'include': 'types,categories',
+    });
+    _publicListingsInFlight = request;
+    try {
+      final response = await request;
+      _publicListingsCache = List<dynamic>.from(response);
+      _publicListingsCacheAt = DateTime.now();
+      return List<dynamic>.from(response);
+    } catch (_) {
+      if (cache != null) return List<dynamic>.from(cache);
+      rethrow;
+    } finally {
+      if (identical(_publicListingsInFlight, request)) {
+        _publicListingsInFlight = null;
+      }
+    }
   }
 
   List<EstateItem> _parseEstates(List<dynamic> response) {
@@ -282,8 +371,15 @@ class EstateRepository {
     final price = sellPrice > 0 ? sellPrice : (rentPrice > 0 ? rentPrice : _toDouble(json['price']));
 
     String? category;
+    final propertyCategories = json['propertyCategories'] ?? json['property_categories'];
+    if (propertyCategories is List && propertyCategories.isNotEmpty) {
+      final first = propertyCategories.first;
+      if (first is Map) {
+        category = '${first['name_en'] ?? first['name_so'] ?? ''}'.trim();
+      }
+    }
     final types = json['listingTypes'] ?? json['listing_types'];
-    if (types is List && types.isNotEmpty) {
+    if ((category == null || category.isEmpty) && types is List && types.isNotEmpty) {
       final first = types.first;
       if (first is Map) {
         category = '${first['name_en'] ?? first['name_so'] ?? ''}'.trim();
@@ -307,6 +403,8 @@ class EstateRepository {
       category: category?.isNotEmpty == true ? category : null,
       lat: lat,
       lng: lng,
+      rentPrice: rentPrice > 0 ? rentPrice : null,
+      sellPrice: sellPrice > 0 ? sellPrice : null,
     );
   }
 

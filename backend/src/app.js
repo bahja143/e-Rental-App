@@ -56,13 +56,30 @@ app.use((req, res, next) => {
 });
 app.use(morgan('dev'));
 
+const normalizeClientIp = (value) => {
+  const ip = String(value || '').trim();
+  if (!ip) return '';
+  if (ip.startsWith('::ffff:')) return ip.substring(7);
+  return ip;
+};
+
+const isPrivateClientIp = (value) => {
+  const ip = normalizeClientIp(value);
+  return ip === '127.0.0.1' ||
+    ip === '::1' ||
+    ip.startsWith('10.') ||
+    ip.startsWith('192.168.') ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(ip);
+};
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000,
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  skip: (req) => process.env.NODE_ENV !== 'production' && isPrivateClientIp(req.ip),
 });
 app.use(limiter);
 

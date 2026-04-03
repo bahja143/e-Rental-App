@@ -26,12 +26,21 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static const List<String> _homeCategories = <String>[
+    'All',
+    'House',
+    'Apartment',
+    'Villa',
+    'Hotel',
+  ];
+
   final _repo = EstateRepository();
   late final Future<_HomeData> _homeFuture;
   Set<String> _savedIds = <String>{};
   /// Local override for "What do you need?" - null means use data.lookingFor
   bool? _preferRent;
   String? _selectedLocation;
+  String _selectedCategory = 'All';
   bool _exitDialogVisible = false;
 
   @override
@@ -228,6 +237,18 @@ class _HomeScreenState extends State<HomeScreen> {
             return const Center(child: CircularProgressIndicator(color: AppColors.primary));
           }
           final data = snapshot.data ?? const _HomeData.empty();
+          final filteredFeatured = _applyHomeFilters(
+            data.featured,
+            preferRent: _effectivePreferRent(data),
+            selectedLocation: _selectedLocation,
+            selectedCategory: _selectedCategory,
+          );
+          final filteredNearby = _applyHomeFilters(
+            data.nearby,
+            preferRent: _effectivePreferRent(data),
+            selectedLocation: _selectedLocation,
+            selectedCategory: _selectedCategory,
+          );
           final topPadding = MediaQuery.of(context).padding.top;
           return AnnotatedRegion<SystemUiOverlayStyle>(
             value: const SystemUiOverlayStyle(
@@ -305,26 +326,28 @@ class _HomeScreenState extends State<HomeScreen> {
                   SliverToBoxAdapter(
                   child: SizedBox(
                     height: 156,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      itemBuilder: (_, i) {
-                        final estate = data.featured[i];
-                        return EstateCard.horizontal(
-                          title: estate.title,
-                          location: estate.location,
-                          price: estate.price,
-                          rating: estate.rating,
-                          imageUrl: estate.imageUrl,
-                          category: estate.displayCategory,
-                          isSaved: _savedIds.contains(estate.id),
-                          onToggleSaved: () => _toggleSaved(estate),
-                          onTap: () => context.push(AppRoutes.estateDetail(estate.id)),
-                        );
-                      },
-                      separatorBuilder: (_, __) => const SizedBox(width: 10),
-                      itemCount: data.featured.length,
-                    ),
+                    child: filteredFeatured.isEmpty
+                        ? _buildEmptyFilterState('No featured estates match these filters.')
+                        : ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            itemBuilder: (_, i) {
+                              final estate = filteredFeatured[i];
+                              return EstateCard.horizontal(
+                                title: estate.title,
+                                location: estate.location,
+                                price: estate.price,
+                                rating: estate.rating,
+                                imageUrl: estate.imageUrl,
+                                category: estate.displayCategory,
+                                isSaved: _savedIds.contains(estate.id),
+                                onToggleSaved: () => _toggleSaved(estate),
+                                onTap: () => context.push(AppRoutes.estateDetail(estate.id)),
+                              );
+                            },
+                            separatorBuilder: (_, __) => const SizedBox(width: 10),
+                            itemCount: filteredFeatured.length,
+                          ),
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -353,29 +376,32 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildSectionHeader(context, 'Explore Nearby Estates', right: null),
-                        GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 10,
-                      crossAxisSpacing: 7,
-                      childAspectRatio: 0.63,
-                      children: data.nearby
-                          .map(
-                            (estate) => EstateCard.vertical(
-                              title: estate.title,
-                              location: estate.location,
-                              price: estate.price,
-                              rating: estate.rating,
-                              imageUrl: estate.imageUrl,
-                              category: estate.displayCategory,
-                              isSaved: _savedIds.contains(estate.id),
-                              onToggleSaved: () => _toggleSaved(estate),
-                              onTap: () => context.push(AppRoutes.estateDetail(estate.id)),
-                            ),
-                          )
-                          .toList(),
-                        ),
+                        if (filteredNearby.isEmpty)
+                          _buildEmptyFilterState('No nearby estates match these filters.')
+                        else
+                          GridView.count(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 10,
+                            crossAxisSpacing: 7,
+                            childAspectRatio: 0.63,
+                            children: filteredNearby
+                                .map(
+                                  (estate) => EstateCard.vertical(
+                                    title: estate.title,
+                                    location: estate.location,
+                                    price: estate.price,
+                                    rating: estate.rating,
+                                    imageUrl: estate.imageUrl,
+                                    category: estate.displayCategory,
+                                    isSaved: _savedIds.contains(estate.id),
+                                    onToggleSaved: () => _toggleSaved(estate),
+                                    onTap: () => context.push(AppRoutes.estateDetail(estate.id)),
+                                  ),
+                                )
+                                .toList(),
+                          ),
                       ],
                     ),
                   ),
@@ -678,21 +704,22 @@ class _HomeScreenState extends State<HomeScreen> {
       height: 47,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        children: const [
-          CategoryChip(label: 'All', isSelected: true),
-          SizedBox(width: 10),
-          CategoryChip(label: 'House'),
-          SizedBox(width: 10),
-          CategoryChip(label: 'Apartment'),
-          SizedBox(width: 10),
-          CategoryChip(label: 'House'),
+        children: [
+          for (var i = 0; i < _homeCategories.length; i++) ...[
+            CategoryChip(
+              label: _homeCategories[i],
+              isSelected: _selectedCategory == _homeCategories[i],
+              onTap: () => setState(() => _selectedCategory = _homeCategories[i]),
+            ),
+            if (i != _homeCategories.length - 1) const SizedBox(width: 10),
+          ],
         ],
       ),
     );
   }
 
   Widget _buildNeedToggle(BuildContext context, _HomeData data) {
-    final preferRent = _preferRent ?? (data.lookingFor == 'buy' ? false : true);
+    final preferRent = _effectivePreferRent(data);
     return GestureDetector(
       onTap: () => setState(() => _preferRent = !preferRent),
       child: Container(
@@ -783,6 +810,55 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
       ],
+    );
+  }
+
+  bool _effectivePreferRent(_HomeData data) {
+    return _preferRent ?? (data.lookingFor == 'buy' ? false : true);
+  }
+
+  List<EstateItem> _applyHomeFilters(
+    List<EstateItem> items, {
+    required bool preferRent,
+    required String? selectedLocation,
+    required String selectedCategory,
+  }) {
+    final locationNeedle = selectedLocation?.trim().toLowerCase() ?? '';
+    return items.where((item) {
+      final matchesNeed = preferRent
+          ? (item.hasRentOption || !item.hasSellOption)
+          : (item.hasSellOption || !item.hasRentOption);
+      if (!matchesNeed) return false;
+
+      if (selectedCategory != 'All') {
+        final category = (item.displayCategory ?? '').trim().toLowerCase();
+        if (category != selectedCategory.toLowerCase()) return false;
+      }
+
+      if (locationNeedle.isNotEmpty) {
+        final haystack = item.location.toLowerCase();
+        if (!haystack.contains(locationNeedle)) return false;
+      }
+
+      return true;
+    }).toList();
+  }
+
+  Widget _buildEmptyFilterState(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.raleway(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: AppColors.greyMedium,
+            letterSpacing: 0.36,
+          ),
+        ),
+      ),
     );
   }
 }
