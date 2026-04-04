@@ -16,6 +16,8 @@ const db = require('./models');
 const routes = require('./routes');
 const authService = require('./services/authService');
 const { emailQueue, emailWorker } = require('./queues');
+const { isMongoEnabled, isMongoConnected } = require('./services/mongoService');
+const { getPublicBaseUrl } = require('./utils/publicUrl');
 
 const app = express();
 const server = http.createServer(app);
@@ -23,6 +25,7 @@ const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
 // Middleware
+app.set('trust proxy', true);
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
@@ -87,12 +90,16 @@ let io;
 
 if (process.env.NODE_ENV !== 'test') {
   // MongoDB connection
-  mongoose.connect(process.env.MONGO_URI || 'mongodb://admin:password@mongo:27017/rental_db?authSource=admin', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
+  if (isMongoEnabled()) {
+    mongoose.connect(process.env.MONGO_URI || 'mongodb://admin:password@mongo:27017/rental_db?authSource=admin', {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    })
+    .then(() => console.log('MongoDB connected'))
+    .catch(err => console.error('MongoDB connection error:', err));
+  } else {
+    console.log('MongoDB disabled via MONGO_ENABLED=false');
+  }
 
   // Test database connection (MySQL or PostgreSQL)
   const dbDialect = process.env.DB_DIALECT || 'mysql';
@@ -367,7 +374,13 @@ app.get('/', (req, res) => {
 
 // Ping route - hit from Flutter or browser to verify backend is reachable
 app.get('/api/ping', (req, res) => {
-  res.json({ ok: true, message: 'Backend reachable', ts: new Date().toISOString() });
+  res.json({
+    ok: true,
+    message: 'Backend reachable',
+    ts: new Date().toISOString(),
+    publicBaseUrl: getPublicBaseUrl(req),
+    apiBaseUrl: `${getPublicBaseUrl(req)}/api`,
+  });
 });
 
 // Health check route
@@ -387,7 +400,9 @@ app.get('/health', async (req, res) => {
   }
 
   try {
-    if (mongoose.connection.readyState === 1) {
+    if (!isMongoEnabled()) {
+      health.services.mongo = 'disabled';
+    } else if (isMongoConnected()) {
       await mongoose.connection.db.admin().ping();
       health.services.mongo = 'connected';
     } else {
@@ -414,7 +429,9 @@ app.get('/health', async (req, res) => {
 process.on('SIGINT', async () => {
   console.log('Shutting down gracefully...');
   await sequelize.close();
-  await mongoose.connection.close();
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.connection.close();
+  }
   await emailQueue.close();
   await emailWorker.close();
   if (redisClient.isOpen) {
@@ -430,7 +447,8 @@ process.on('SIGINT', async () => {
 if (require.main === module) {
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
-    console.log('Accepting connections on 0.0.0.0 - use your PC LAN IP for Flutter (e.g. http://192.168.x.x:3000/api)');
+    console.log(`Public base URL: ${process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`}`);
+    console.log('Accepting connections on 0.0.0.0 - use your public base URL or LAN IP for clients');
   });
 }
 

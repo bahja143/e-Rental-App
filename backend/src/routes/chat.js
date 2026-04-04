@@ -14,9 +14,11 @@ const {
   getAppSettings
 } = require('../controllers/chatController');
 const authMiddleware = require('../middleware/authMiddleware');
+const { requireMongo } = require('../services/mongoService');
 
 // Apply auth middleware to all routes
 router.use(authMiddleware.authenticateToken);
+router.use(requireMongo);
 
 // Conversations
 router.get('/conversations', getConversations);

@@ -40,11 +40,11 @@ flutter run
 
 The app now includes a lightweight API client and repositories with safe fallback data.
 
-- Default API base URL: `https://api.example.com`
+- Default API base URL: `http://68.183.225.40:8080/api`
 - Override base URL at build/run time:
 
 ```bash
-flutter run --dart-define=API_BASE_URL=https://your-api-domain.com
+flutter run --dart-define=API_BASE_URL=http://68.183.225.40:8080/api
 ```
 
 Current repository-backed screens:

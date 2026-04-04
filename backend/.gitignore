@@ -2,6 +2,7 @@ node_modules/
 uploads/
 .env
 .env.*
+!.env.example
 *.log
 firebase-adminsdk-*.json
 *service-account*.json

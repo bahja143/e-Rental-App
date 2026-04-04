@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Badge, Button, Col, Form, Modal, Pagination, Row, Spinner, Table } from 'react-bootstrap';
 import { createListing, deleteListing, getListings, updateListing } from '../../services/rentalApi';
 
+const money = (value) => `$${Number(value || 0).toLocaleString()}`;
+
 const initialForm = {
   title: '',
   address: '',
@@ -11,7 +13,7 @@ const initialForm = {
   rent_price: '',
   sell_price: '',
   rent_type: 'monthly',
-  availability: true,
+  availability: true
 };
 
 const parseBooleanAvailability = (value) => value === '1' || value === 1 || value === true;
@@ -45,7 +47,7 @@ const ListingsList = () => {
       const p = res.data?.pagination ?? {};
       setPagination({
         totalPages: p.totalPages ?? 1,
-        total: p.total ?? 0,
+        total: p.total ?? 0
       });
     } catch (err) {
       console.error(err);
@@ -76,7 +78,7 @@ const ListingsList = () => {
       rent_price: row.rent_price ?? '',
       sell_price: row.sell_price ?? '',
       rent_type: row.rent_type ?? 'monthly',
-      availability: parseBooleanAvailability(row.availability),
+      availability: parseBooleanAvailability(row.availability)
     });
     setShowModal(true);
   };
@@ -124,7 +126,7 @@ const ListingsList = () => {
         rent_price: form.rent_price === '' ? null : Number(form.rent_price),
         sell_price: form.sell_price === '' ? null : Number(form.sell_price),
         rent_type: form.sell_price ? null : form.rent_type,
-        availability: form.availability ? '1' : '2',
+        availability: form.availability ? '1' : '2'
       };
 
       if (editing?.id) {
@@ -304,7 +306,12 @@ const ListingsList = () => {
             </Col>
             <Col md={12}>
               <Form.Label>Description</Form.Label>
-              <Form.Control as="textarea" rows={4} value={form.description} onChange={(event) => handleFormChange('description', event.target.value)} />
+              <Form.Control
+                as="textarea"
+                rows={4}
+                value={form.description}
+                onChange={(event) => handleFormChange('description', event.target.value)}
+              />
             </Col>
             <Col md={6}>
               <Form.Label>Rent Price</Form.Label>

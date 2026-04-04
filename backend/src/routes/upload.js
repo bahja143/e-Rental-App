@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { buildPublicUrl } = require('../utils/publicUrl');
 
 const router = express.Router();
 
@@ -86,9 +87,7 @@ router.post('/profile-image', upload.single('image'), (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: 'No image file provided' });
     }
-    const protocol = req.get('x-forwarded-proto') || req.protocol || 'http';
-    const host = req.get('x-forwarded-host') || req.get('host') || `localhost:${process.env.PORT || 3000}`;
-    const url = `${protocol}://${host}/uploads/profiles/${req.file.filename}`;
+    const url = buildPublicUrl(req, `/uploads/profiles/${req.file.filename}`);
     console.log('[upload/profile-image] Saved:', req.file.filename, '-> URL:', url.substring(0, 80) + '...');
     res.json({ url });
   } catch (error) {
@@ -102,9 +101,7 @@ router.post('/listing-media', listingMediaUpload.single('media'), (req, res) => 
     if (!req.file) {
       return res.status(400).json({ error: 'No media file provided' });
     }
-    const protocol = req.get('x-forwarded-proto') || req.protocol || 'http';
-    const host = req.get('x-forwarded-host') || req.get('host') || `localhost:${process.env.PORT || 3000}`;
-    const url = `${protocol}://${host}/uploads/listings/${req.file.filename}`;
+    const url = buildPublicUrl(req, `/uploads/listings/${req.file.filename}`);
     const ext = (path.extname(req.file.originalname) || '').toLowerCase();
     const type = videoExtensions.includes(ext) || `${req.file.mimetype}`.startsWith('video/') ? 'video' : 'image';
     res.json({ url, type });

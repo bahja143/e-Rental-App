@@ -28,7 +28,7 @@ A Node.js Express API with MongoDB, PostgreSQL (with PostGIS), Redis, Sequelize 
    docker-compose up --build
    ```
 
-3. The API will be available at `http://localhost:3000`
+3. The API will be available at `http://localhost:3000` by default, or at your configured `PUBLIC_BASE_URL` in production.
 
 ## API Endpoints
 
@@ -113,6 +113,7 @@ Configure the following environment variables in `.env`:
 
 - `PORT`: Server port (default: 3000)
 - `NODE_ENV`: Environment (development/production)
+- `PUBLIC_BASE_URL`: Public URL clients should use for this backend, e.g. `http://68.183.225.40:8080`
 - `MONGO_URI`: MongoDB connection string
 - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`: PostgreSQL configuration
 - `REDIS_HOST`, `REDIS_PORT`: Redis configuration
@@ -135,6 +136,26 @@ To enable push:
 Security:
 - Never commit service-account JSON files.
 - If a key is shared accidentally, rotate/revoke it immediately in Google Cloud IAM.
+
+## Live Server
+
+The current live backend responds at:
+
+```text
+http://68.183.225.40:8080/api
+```
+
+Recommended production settings:
+
+```env
+PORT=8080
+NODE_ENV=production
+PUBLIC_BASE_URL=http://68.183.225.40:8080
+```
+
+Notes:
+- `GET /api/ping` now returns both `publicBaseUrl` and `apiBaseUrl`, which helps confirm the server is advertising the expected live endpoint.
+- Upload endpoints build returned file URLs from `PUBLIC_BASE_URL` when set, instead of falling back to `localhost`.
 
 ## Development
 
