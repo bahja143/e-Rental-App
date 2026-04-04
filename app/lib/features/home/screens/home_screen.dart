@@ -35,7 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   final _repo = EstateRepository();
-  late final Future<_HomeData> _homeFuture;
+  late Future<_HomeData> _homeFuture;
   Set<String> _savedIds = <String>{};
   /// Local override for "What do you need?" - null means use data.lookingFor
   bool? _preferRent;
@@ -47,7 +47,14 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _homeFuture = _loadHomeData();
+    EstateRepository.listingsVersionListenable.addListener(_handleListingsChanged);
     _loadSavedIds();
+  }
+
+  @override
+  void dispose() {
+    EstateRepository.listingsVersionListenable.removeListener(_handleListingsChanged);
+    super.dispose();
   }
 
   Future<_HomeData> _loadHomeData() async {
@@ -76,6 +83,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final ids = await _repo.getSavedEstateIds();
     if (!mounted) return;
     setState(() => _savedIds = ids);
+  }
+
+  void _handleListingsChanged() {
+    if (!mounted) return;
+    setState(() => _homeFuture = _loadHomeData());
   }
 
   Future<void> _toggleSaved(EstateItem estate) async {

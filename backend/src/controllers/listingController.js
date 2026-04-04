@@ -1,6 +1,7 @@
 const { Listing, User, ListingType, PropertyCategory, ListingFeature, PropertyFeatures, ListingFacility, Facility, Favourite, sequelize } = require('../models');
 const { Op, Sequelize } = require('sequelize');
 const config = require('../config/config');
+const { normalizeListingCollection, normalizeListingMediaFields } = require('../utils/listingSerializer');
 
 // Get all listings with pagination, filtering, sorting
 const getListings = async (req, res) => {
@@ -169,7 +170,7 @@ const getListings = async (req, res) => {
     });
 
     res.json({
-      data: listings.rows,
+      data: normalizeListingCollection(listings.rows),
       pagination: {
         total: listings.count,
         page: parseInt(page),
@@ -259,7 +260,7 @@ const getListingById = async (req, res) => {
     if (!listing) {
       return res.status(404).json({ error: 'Listing not found' });
     }
-    res.json(listing);
+    res.json(normalizeListingMediaFields(listing));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -345,7 +346,7 @@ const createListing = async (req, res) => {
     // Location will be set by model hooks
 
     const listing = await Listing.create(createData);
-    res.status(201).json(listing);
+    res.status(201).json(normalizeListingMediaFields(listing));
   } catch (error) {
     if (error.name === 'SequelizeForeignKeyConstraintError') {
       res.status(400).json({ error: 'Invalid user_id - user does not exist' });
@@ -494,7 +495,7 @@ const updateListing = async (req, res) => {
     const updatedListing = await Listing.findByPk(req.params.id, {
       include,
     });
-    res.json(updatedListing);
+    res.json(normalizeListingMediaFields(updatedListing));
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

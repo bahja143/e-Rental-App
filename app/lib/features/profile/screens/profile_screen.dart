@@ -34,6 +34,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _pageFuture = _loadPage();
+    EstateRepository.listingsVersionListenable.addListener(_handleListingsChanged);
+  }
+
+  @override
+  void dispose() {
+    EstateRepository.listingsVersionListenable.removeListener(_handleListingsChanged);
+    super.dispose();
   }
 
   Future<_ProfileDashboardData> _loadPage() async {
@@ -62,6 +69,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _refresh() async {
     setState(() => _pageFuture = _loadPage());
     await _pageFuture;
+  }
+
+  void _handleListingsChanged() {
+    if (!mounted) return;
+    setState(() => _pageFuture = _loadPage());
   }
 
   @override

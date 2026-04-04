@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -1919,21 +1920,17 @@ class _EstateDetailData {
     required EstateDetailScreen widgetFallback,
   }) {
     final data = listing ?? <String, dynamic>{};
-    final images = data['images'];
+    final images = _readStringList(data['images']);
     final imageUrls = <String>[];
-    if (images is List) {
-      for (final u in images) {
-        final s = '$u'.trim();
-        if (s.isNotEmpty) imageUrls.add(s);
-      }
+    for (final u in images) {
+      final s = '$u'.trim();
+      if (s.isNotEmpty) imageUrls.add(s);
     }
-    final videos = data['videos'];
+    final videos = _readStringList(data['videos']);
     final videoUrls = <String>[];
-    if (videos is List) {
-      for (final u in videos) {
-        final s = '$u'.trim();
-        if (s.isNotEmpty) videoUrls.add(s);
-      }
+    for (final u in videos) {
+      final s = '$u'.trim();
+      if (s.isNotEmpty) videoUrls.add(s);
     }
     String imageUrl = widgetFallback.imageUrl;
     if (imageUrls.isEmpty) {
@@ -2152,5 +2149,31 @@ class _EstateDetailData {
         .replaceAll('&', 'and')
         .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
         .trim();
+  }
+
+  static List<String> _readStringList(dynamic value) {
+    if (value is List) {
+      return value
+          .map((item) => '$item'.trim())
+          .where((item) => item.isNotEmpty)
+          .toList();
+    }
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) return const <String>[];
+      if (trimmed.startsWith('[')) {
+        try {
+          final decoded = jsonDecode(trimmed);
+          if (decoded is List) {
+            return decoded
+                .map((item) => '$item'.trim())
+                .where((item) => item.isNotEmpty)
+                .toList();
+          }
+        } catch (_) {}
+      }
+      return <String>[trimmed];
+    }
+    return const <String>[];
   }
 }

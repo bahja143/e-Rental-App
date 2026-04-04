@@ -7,6 +7,7 @@ const { Listing, User, ListingType, PropertyCategory, ListingFeature, PropertyFe
 const { Op, Sequelize } = require('sequelize');
 const rentalService = require('../services/rentalService');
 const config = require('../config/config');
+const { normalizeListingCollection, normalizeListingMediaFields } = require('../utils/listingSerializer');
 
 // Reuse filters from main listing controller
 const buildListingQuery = (query) => {
@@ -150,7 +151,7 @@ const getPublicListings = async (req, res) => {
     });
 
     res.json({
-      data: rows,
+      data: normalizeListingCollection(rows),
       pagination: {
         page: parseInt(req.query.page) || 1,
         limit,
@@ -183,7 +184,7 @@ const getPublicListingById = async (req, res) => {
       return res.status(404).json({ error: 'Listing not found' });
     }
 
-    res.json(listing);
+    res.json(normalizeListingMediaFields(listing));
   } catch (error) {
     console.error('getPublicListingById:', error);
     res.status(500).json({ error: 'Internal server error' });

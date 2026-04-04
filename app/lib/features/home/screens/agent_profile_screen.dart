@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -268,9 +270,9 @@ class _AgentListing {
   });
 
   factory _AgentListing.fromJson(Map<String, dynamic> json) {
-    final images = json['images'];
+    final images = _readStringList(json['images']);
     String imageUrl = '';
-    if (images is List && images.isNotEmpty) {
+    if (images.isNotEmpty) {
       imageUrl = '${images.first}';
     }
     final rent = _toDouble(json['rent_price']);
@@ -294,6 +296,32 @@ class _AgentListing {
 double _toDouble(dynamic value) {
   if (value is num) return value.toDouble();
   return double.tryParse('$value') ?? 0;
+}
+
+List<String> _readStringList(dynamic value) {
+  if (value is List) {
+    return value
+        .map((item) => '$item'.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+  }
+  if (value is String) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return const <String>[];
+    if (trimmed.startsWith('[')) {
+      try {
+        final decoded = jsonDecode(trimmed);
+        if (decoded is List) {
+          return decoded
+              .map((item) => '$item'.trim())
+              .where((item) => item.isNotEmpty)
+              .toList();
+        }
+      } catch (_) {}
+    }
+    return <String>[trimmed];
+  }
+  return const <String>[];
 }
 
 class _ProfileSection extends StatelessWidget {
@@ -719,4 +747,3 @@ class _ListingsGrid extends StatelessWidget {
     );
   }
 }
-

@@ -1495,6 +1495,9 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
     if (!mounted) return;
     setState(() {
       _publishing = false;
+      if (ok) {
+        EstateRepository.invalidateListingData();
+      }
       _publishState =
           ok ? _AddEstatePublishState.success : _AddEstatePublishState.error;
     });
@@ -1658,6 +1661,7 @@ class _AddEstateScreenState extends State<AddEstateScreen> {
     if (!mounted) return;
     setState(() => _publishing = false);
     if (ok) {
+      EstateRepository.invalidateListingData();
       setState(() => _editSuccessVisible = true);
       return;
     }

@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
+
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_session.dart';
 import '../models/estate_item.dart';
@@ -13,7 +17,17 @@ class EstateRepository {
   static DateTime? _publicListingsCacheAt;
   static Future<List<dynamic>>? _publicListingsInFlight;
   static const Duration _publicListingsCacheTtl = Duration(seconds: 30);
+  static final ValueNotifier<int> _listingsVersion = ValueNotifier<int>(0);
   final ApiClient _apiClient;
+
+  static ValueListenable<int> get listingsVersionListenable => _listingsVersion;
+
+  static void invalidateListingData() {
+    _publicListingsCache = null;
+    _publicListingsCacheAt = null;
+    _publicListingsInFlight = null;
+    _listingsVersion.value++;
+  }
 
   String? _currentUserId() {
     final userId = ApiSession.currentUserId?.trim();
@@ -214,9 +228,8 @@ class EstateRepository {
         final address = '${raw['address'] ?? ''}'.trim();
         final locationName = _extractLocationName(address);
         if (locationName.isEmpty || byName.containsKey(locationName)) continue;
-        final images = raw['images'];
-        final avatarUrl = (images is List && images.isNotEmpty) ? '${images.first}' : '';
-        if (avatarUrl.isEmpty) continue;
+        final locationImages = _readStringList(raw['images']);
+        final avatarUrl = locationImages.isNotEmpty ? locationImages.first : '';
         byName[locationName] = TopLocationItem(
           name: locationName,
           avatarUrl: avatarUrl,
@@ -239,7 +252,7 @@ class EstateRepository {
         if (id.isEmpty || byId.containsKey(id)) continue;
         final name = '${user['name'] ?? ''}';
         final avatarUrl = '${user['profile_picture_url'] ?? ''}';
-        if (name.isEmpty || avatarUrl.isEmpty) continue;
+        if (name.isEmpty) continue;
         byId[id] = TopAgentItem(id: id, name: name, avatarUrl: avatarUrl);
       }
       final agents = byId.values.toList();
@@ -355,9 +368,9 @@ class EstateRepository {
   }
 
   EstateItem _toEstateItem(Map<String, dynamic> json) {
-    final images = json['images'];
+    final images = _readStringList(json['images']);
     String imageUrl = '';
-    if (images is List && images.isNotEmpty) {
+    if (images.isNotEmpty) {
       imageUrl = '${images.first}';
     } else if (json['imageUrl'] != null) {
       imageUrl = '${json['imageUrl']}';
@@ -420,5 +433,33 @@ class EstateRepository {
       return segments.sublist(segments.length - 2).join(',').trim();
     }
     return address.trim();
+  }
+
+  List<String> _readStringList(dynamic value) {
+    if (value is List) {
+      return value
+          .map((item) => '$item'.trim())
+          .where((item) => item.isNotEmpty)
+          .toList();
+    }
+
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) return const <String>[];
+      if (trimmed.startsWith('[')) {
+        try {
+          final decoded = jsonDecode(trimmed);
+          if (decoded is List) {
+            return decoded
+                .map((item) => '$item'.trim())
+                .where((item) => item.isNotEmpty)
+                .toList();
+          }
+        } catch (_) {}
+      }
+      return <String>[trimmed];
+    }
+
+    return const <String>[];
   }
 }

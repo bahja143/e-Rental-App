@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import '../../../../core/network/api_client.dart';
@@ -325,8 +326,8 @@ class TransactionRepository {
   }
 
   String _extractImageUrl(Map<String, dynamic> listing) {
-    final images = listing['images'];
-    if (images is List && images.isNotEmpty) {
+    final images = _readStringList(listing['images']);
+    if (images.isNotEmpty) {
       final first = '${images.first}';
       if (first.isNotEmpty) return first;
     }
@@ -340,17 +341,13 @@ class TransactionRepository {
   List<String> _extractEvidenceUrls(Map<String, dynamic> raw, Map<String, dynamic> listing) {
     final urls = <String>[];
     for (final key in ['dispute_images', 'evidence_images', 'images']) {
-      final value = raw[key];
-      if (value is List) {
-        for (final item in value) {
+      for (final item in _readStringList(raw[key])) {
           final url = '$item'.trim();
           if (url.isNotEmpty) urls.add(url);
-        }
       }
     }
-    final listingImages = listing['images'];
-    if (urls.isEmpty && listingImages is List) {
-      for (final item in listingImages.take(2)) {
+    if (urls.isEmpty) {
+      for (final item in _readStringList(listing['images']).take(2)) {
         final url = '$item'.trim();
         if (url.isNotEmpty) urls.add(url);
       }
@@ -422,6 +419,32 @@ class TransactionRepository {
       }
     }
     return '';
+  }
+
+  List<String> _readStringList(dynamic value) {
+    if (value is List) {
+      return value
+          .map((item) => '$item'.trim())
+          .where((item) => item.isNotEmpty)
+          .toList();
+    }
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) return const <String>[];
+      if (trimmed.startsWith('[')) {
+        try {
+          final decoded = jsonDecode(trimmed);
+          if (decoded is List) {
+            return decoded
+                .map((item) => '$item'.trim())
+                .where((item) => item.isNotEmpty)
+                .toList();
+          }
+        } catch (_) {}
+      }
+      return <String>[trimmed];
+    }
+    return const <String>[];
   }
 }
 

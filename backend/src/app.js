@@ -17,7 +17,7 @@ const routes = require('./routes');
 const authService = require('./services/authService');
 const { emailQueue, emailWorker } = require('./queues');
 const { isMongoEnabled, isMongoConnected } = require('./services/mongoService');
-const { getPublicBaseUrl } = require('./utils/publicUrl');
+const { getPublicBaseUrl, rewritePublicUploadUrlsDeep } = require('./utils/publicUrl');
 
 const app = express();
 const server = http.createServer(app);
@@ -38,8 +38,9 @@ app.use((req, res, next) => {
   let resBody = null;
   const origJson = res.json.bind(res);
   res.json = function (body) {
-    resBody = typeof body === 'string' ? body : JSON.stringify(body, null, 2);
-    return origJson(body);
+    const normalizedBody = rewritePublicUploadUrlsDeep(req, body);
+    resBody = typeof normalizedBody === 'string' ? normalizedBody : JSON.stringify(normalizedBody, null, 2);
+    return origJson(normalizedBody);
   };
   const origSend = res.send.bind(res);
   res.send = function (body) {
