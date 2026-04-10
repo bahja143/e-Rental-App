@@ -3,6 +3,8 @@ function normalizeBaseUrl(value) {
   return value.trim().replace(/\/+$/, '');
 }
 
+const PUBLIC_ASSET_PREFIXES = ['/uploads/', '/listing-images/'];
+
 function getHostname(value) {
   try {
     return new URL(value).hostname || '';
@@ -75,6 +77,10 @@ function buildPublicUrl(req, pathname) {
   return `${getPublicBaseUrl(req)}${cleanPath}`;
 }
 
+function isPublicAssetPath(pathname) {
+  return PUBLIC_ASSET_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
 function rewritePublicUploadUrl(req, value) {
   if (typeof value !== 'string') return value;
 
@@ -91,13 +97,13 @@ function rewritePublicUploadUrl(req, value) {
     }
   }
 
-  if (trimmedValue.startsWith('/uploads/')) {
+  if (isPublicAssetPath(trimmedValue)) {
     return buildPublicUrl(req, trimmedValue);
   }
 
   try {
     const parsed = new URL(trimmedValue);
-    if (!parsed.pathname.startsWith('/uploads/')) {
+    if (!isPublicAssetPath(parsed.pathname)) {
       return value;
     }
 

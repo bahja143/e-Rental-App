@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/media_url.dart';
 import '../models/booking_summary.dart';
 import '../models/transaction_detail_data.dart';
 import '../models/transaction_history_item.dart';
@@ -174,12 +175,12 @@ class TransactionRepository {
       statusLabel: _statusLabel(status),
       statusAccentValue: status == 'cancelled' ? 0xFFE71704 : 0xFFE7B904,
       sellerName: sellerName,
-      sellerAvatarUrl: '${seller['profile_picture_url'] ?? ''}',
+      sellerAvatarUrl: MediaUrl.normalize('${seller['profile_picture_url'] ?? ''}'),
       sellerLocation: location,
       sellerRating: 0,
       sellerSoldCount: 0,
       buyerName: buyerName,
-      buyerAvatarUrl: '${renter['profile_picture_url'] ?? me?['profile_picture_url'] ?? ''}',
+      buyerAvatarUrl: MediaUrl.normalize('${renter['profile_picture_url'] ?? me?['profile_picture_url'] ?? ''}'),
       buyerLocation: '${renter['address'] ?? renter['city'] ?? me?['address'] ?? me?['city'] ?? location}',
       checkInLabel: _formatDetailDate(raw['start_date']),
       checkOutLabel: _formatDetailDate(raw['end_date']),
@@ -273,7 +274,7 @@ class TransactionRepository {
     if (data is Map<String, dynamic>) {
       for (final key in ['url', 'image_url', 'imageUrl', 'path']) {
         final value = data[key];
-        if (value is String && value.trim().isNotEmpty) return value.trim();
+        if (value is String && value.trim().isNotEmpty) return MediaUrl.normalize(value.trim());
       }
     }
     return null;
@@ -328,11 +329,11 @@ class TransactionRepository {
   String _extractImageUrl(Map<String, dynamic> listing) {
     final images = _readStringList(listing['images']);
     if (images.isNotEmpty) {
-      final first = '${images.first}';
+      final first = MediaUrl.normalize('${images.first}');
       if (first.isNotEmpty) return first;
     }
     for (final key in ['image_url', 'imageUrl', 'thumbnail']) {
-      final value = '${listing[key] ?? ''}'.trim();
+      final value = MediaUrl.normalize('${listing[key] ?? ''}'.trim());
       if (value.isNotEmpty) return value;
     }
     return '';
@@ -342,13 +343,13 @@ class TransactionRepository {
     final urls = <String>[];
     for (final key in ['dispute_images', 'evidence_images', 'images']) {
       for (final item in _readStringList(raw[key])) {
-          final url = '$item'.trim();
+          final url = MediaUrl.normalize('$item'.trim());
           if (url.isNotEmpty) urls.add(url);
       }
     }
     if (urls.isEmpty) {
       for (final item in _readStringList(listing['images']).take(2)) {
-        final url = '$item'.trim();
+        final url = MediaUrl.normalize('$item'.trim());
         if (url.isNotEmpty) urls.add(url);
       }
     }

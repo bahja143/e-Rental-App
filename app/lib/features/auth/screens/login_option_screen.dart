@@ -17,10 +17,10 @@ class LoginOptionScreen extends StatefulWidget {
 class _LoginOptionScreenState extends State<LoginOptionScreen> {
   // Local images: top-left, top-right, bottom-left, bottom-right
   static const _images = [
-    'assets/images/login_options/login_option_1.png',
-    'assets/images/login_options/login_option_2.png',
-    'assets/images/login_options/login_option_3.png',
-    'assets/images/login_options/login_option_4.png',
+    'assets/images/realistic_images/WhatsApp Image 2026-04-08 at 1.21.53 AM (2).jpeg',
+    'assets/images/realistic_images/WhatsApp Image 2026-04-08 at 1.21.54 AM (1).jpeg',
+    'assets/images/realistic_images/WhatsApp Image 2026-04-08 at 1.21.54 AM.jpeg',
+    'assets/images/realistic_images/WhatsApp Image 2026-04-08 at 1.21.52 AM.jpeg',
   ];
 
   bool _socialLoading = false;

@@ -62,11 +62,22 @@ class _LocationModalState extends State<LocationModal> {
   }
 
   List<TopLocationItem> get _displayItems {
-    return widget.topLocations.isNotEmpty
+    final source = widget.topLocations.isNotEmpty
         ? widget.topLocations
         : _fallbackLocations
             .map((n) => TopLocationItem(name: n, avatarUrl: ''))
             .toList();
+
+    final items = <TopLocationItem>[
+      const TopLocationItem(name: 'All Locations', avatarUrl: ''),
+    ];
+
+    for (final item in source) {
+      if (item.name.trim().toLowerCase() == 'all locations') continue;
+      items.add(item);
+    }
+
+    return items;
   }
 
   static const _fallbackLocations = [

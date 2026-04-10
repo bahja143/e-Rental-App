@@ -328,38 +328,39 @@ class _FilterModalState extends State<FilterModal> {
           ),
         ),
         const SizedBox(height: 20),
-        GestureDetector(
-          onTap: () => setState(() => _preferRent = !_preferRent),
-          child: Container(
-            height: 56,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF2F2F3),
-              borderRadius: BorderRadius.circular(72),
-              border: Border.all(color: const Color(0xFFE3E3E7), width: 0.8),
-            ),
-            child: Stack(
-              children: [
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 200),
-                  left: _preferRent ? 8 : null,
-                  right: _preferRent ? null : 8,
-                  top: 8,
-                  child: Container(
-                    width: 156,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFFE9BD36), AppColors.primary],
-                      ),
-                      borderRadius: BorderRadius.circular(72),
+        Container(
+          height: 56,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF2F2F3),
+            borderRadius: BorderRadius.circular(72),
+            border: Border.all(color: const Color(0xFFE3E3E7), width: 0.8),
+          ),
+          child: Stack(
+            children: [
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 200),
+                left: _preferRent ? 8 : null,
+                right: _preferRent ? null : 8,
+                top: 8,
+                child: Container(
+                  width: 156,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFFE9BD36), AppColors.primary],
                     ),
+                    borderRadius: BorderRadius.circular(72),
                   ),
                 ),
-                Row(
-                  children: [
-                    Expanded(
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _preferRent ? null : () => setState(() => _preferRent = true),
                       child: Center(
                         child: Text(
                           'I need to rent',
@@ -373,7 +374,11 @@ class _FilterModalState extends State<FilterModal> {
                         ),
                       ),
                     ),
-                    Expanded(
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _preferRent ? () => setState(() => _preferRent = false) : null,
                       child: Center(
                         child: Text(
                           'I need to buy',
@@ -387,10 +392,10 @@ class _FilterModalState extends State<FilterModal> {
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ],

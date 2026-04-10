@@ -8,6 +8,7 @@
     "dev": "nodemon src/app.js",
     "db:setup": "node scripts/setup-mysql.js",
     "db:seed:figma-sample": "node scripts/seed-figma-sample-data.js",
+    "db:reassign-listing-images": "node scripts/reassign-listing-images.js",
     "db:verify:figma-sample": "node scripts/verify-figma-sample-data.js",
     "test": "cross-env NODE_ENV=test jest"
   },

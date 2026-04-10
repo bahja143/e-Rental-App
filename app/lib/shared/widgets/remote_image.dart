@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../core/network/media_url.dart';
+
 class RemoteImage extends StatefulWidget {
   const RemoteImage({
     super.key,
@@ -43,7 +45,11 @@ class _RemoteImageState extends State<RemoteImage> {
   }
 
   Future<_RemoteImageData> _load() async {
-    final uri = Uri.parse(widget.url);
+    final resolvedUrl = MediaUrl.normalize(widget.url);
+    if (resolvedUrl.isEmpty) {
+      throw StateError('Image URL is empty');
+    }
+    final uri = Uri.parse(resolvedUrl);
     final bytesData = await NetworkAssetBundle(uri).load(uri.toString());
     final bytes = bytesData.buffer.asUint8List();
     final probeLength = bytes.length > 300 ? 300 : bytes.length;

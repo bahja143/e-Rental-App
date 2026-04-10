@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -18,15 +20,15 @@ class WelcomeScreen extends StatefulWidget {
 class _WelcomeScreenState extends State<WelcomeScreen> {
   /// Local gallery images: row1 image1-3, row2 image4-6, row3 image7-9
   static const _galleryImages = [
-    'assets/images/welcome/Image (1).png',
-    'assets/images/welcome/Image (2).png',
-    'assets/images/welcome/Image (3).png',
-    'assets/images/welcome/Image (4).png',
-    'assets/images/welcome/Image (5).png',
-    'assets/images/welcome/Image (6).png',
-    'assets/images/welcome/Image (7).png',
-    'assets/images/welcome/Image (8).png',
-    'assets/images/welcome/Image (9).png',
+    'assets/images/realistic_images/WhatsApp Image 2026-04-08 at 1.21.45 AM (1).jpeg',
+    'assets/images/realistic_images/WhatsApp Image 2026-04-08 at 1.21.47 AM.jpeg',
+    'assets/images/realistic_images/WhatsApp Image 2026-04-08 at 1.21.49 AM.jpeg',
+    'assets/images/realistic_images/WhatsApp Image 2026-04-08 at 1.21.50 AM (1).jpeg',
+    'assets/images/realistic_images/WhatsApp Image 2026-04-08 at 1.21.51 AM (1).jpeg',
+    'assets/images/realistic_images/WhatsApp Image 2026-04-08 at 1.21.51 AM.jpeg',
+    'assets/images/realistic_images/WhatsApp Image 2026-04-08 at 1.21.52 AM (1).jpeg',
+    'assets/images/realistic_images/WhatsApp Image 2026-04-08 at 1.21.52 AM.jpeg',
+    'assets/images/realistic_images/WhatsApp Image 2026-04-08 at 1.21.53 AM (1).jpeg',
   ];
   static const _centerLogo = 'assets/images/logo.png';
 
@@ -143,37 +145,44 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+
     return BackButtonListener(
       onBackButtonPressed: _handleBackButton,
       child: Scaffold(
-      backgroundColor: AppColors.background,
-      body: Stack(
-          children: [
-            _buildGallery(context),
-            _buildOverlay(),
-            Positioned(
-              left: -17,
-              top: 148,
-              width: 409,
-              height: 358,
-                    child: IgnorePointer(
-                child: Image.asset(
-                  _centerLogo,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+        backgroundColor: AppColors.background,
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final bottomPadding = mediaQuery.padding.bottom;
+            final heroHeight = constraints.maxHeight - _contentHeight(constraints.maxHeight, bottomPadding);
+
+            return Column(
+              children: [
+                SizedBox(
+                  height: heroHeight,
+                  child: _buildHero(
+                    context,
+                    safeTop: mediaQuery.padding.top,
+                  ),
                 ),
-              ),
-            ),
-            _buildContent(context),
-          ],
+                _buildContent(
+                  context,
+                  bottomPadding: bottomPadding,
+                  height: constraints.maxHeight - heroHeight,
+                ),
+              ],
+            );
+          },
         ),
-    ),
+      ),
     );
   }
 
   /// Figma 2063-10310 Gallery: 3 columns, 9px gap, 109px width per cell
   static const _gap = 9.0;
   static const _figmaWidth = 109.0;
+  static const _contentMinHeight = 220.0;
+  static const _contentMaxHeight = 300.0;
 
   /// Per Figma: Column (col) contains 3 cells with heights [h0, h1, h2]. Aspect = width/height.
   static double _cellAspectRatio(int col, int row) {
@@ -185,56 +194,113 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     return _figmaWidth / heights[col][row];
   }
 
-  Widget _buildGallery(BuildContext context) {
-    return Positioned(
-      top: 60,
-      left: 15,
-      right: 15,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: List.generate(3, (col) {
-          return Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(right: col < 2 ? _gap : 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: List.generate(3, (row) {
-                  final idx = col * 3 + row;
-                  if (idx >= _galleryImages.length) return const SizedBox.shrink();
-                  return Padding(
-                    padding: EdgeInsets.only(bottom: row < 2 ? _gap : 0),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: AspectRatio(
-                        aspectRatio: _cellAspectRatio(col, row),
-                        child: Image.asset(
-                          _galleryImages[idx],
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            color: AppColors.greySoft1,
-                            child: const Icon(Icons.home_work, color: AppColors.greyBarelyMedium),
-                          ),
-                        ),
+  double _contentHeight(double screenHeight, double bottomPadding) {
+    final responsiveHeight = screenHeight * 0.34;
+    return responsiveHeight.clamp(_contentMinHeight, _contentMaxHeight).toDouble() + bottomPadding;
+  }
+
+  double _galleryHeightForTileWidth(double tileWidth) {
+    final columnHeights = List.generate(3, (col) {
+      final imageHeights = List.generate(
+        3,
+        (row) => tileWidth / _cellAspectRatio(col, row),
+      ).fold<double>(0, (sum, height) => sum + height);
+      return imageHeights + (_gap * 2);
+    });
+
+    return columnHeights.reduce(math.max);
+  }
+
+  Widget _buildHero(BuildContext context, {required double safeTop}) {
+    return ClipRect(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final galleryWidth = constraints.maxWidth - 30;
+          final tileWidth = (galleryWidth - (_gap * 2)) / 3;
+          final galleryHeight = _galleryHeightForTileWidth(tileWidth);
+          final galleryTop = math.max(
+            safeTop + 12,
+            constraints.maxHeight - galleryHeight - 18,
+          );
+          final logoWidth = math.min(constraints.maxWidth * 0.78, 300.0);
+
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Positioned(
+                top: galleryTop,
+                left: 15,
+                right: 15,
+                child: _buildGalleryGrid(),
+              ),
+              _buildOverlay(),
+              Align(
+                alignment: const Alignment(0, -0.08),
+                child: IgnorePointer(
+                  child: SizedBox(
+                    width: logoWidth,
+                    child: AspectRatio(
+                      aspectRatio: 375 / 358,
+                      child: Image.asset(
+                        _centerLogo,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                       ),
                     ),
-                  );
-                }),
+                  ),
+                ),
               ),
-            ),
+            ],
           );
-        }),
+        },
       ),
     );
   }
 
+  Widget _buildGalleryGrid() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: List.generate(3, (col) {
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(right: col < 2 ? _gap : 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(3, (row) {
+                final idx = col * 3 + row;
+                if (idx >= _galleryImages.length) return const SizedBox.shrink();
+                return Padding(
+                  padding: EdgeInsets.only(bottom: row < 2 ? _gap : 0),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: AspectRatio(
+                      aspectRatio: _cellAspectRatio(col, row),
+                      child: Image.asset(
+                        _galleryImages[idx],
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: AppColors.greySoft1,
+                          child: const Icon(
+                            Icons.home_work,
+                            color: AppColors.greyBarelyMedium,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
   Widget _buildOverlay() {
-    return Positioned(
-      top: 44,
-      left: 0,
-      right: 0,
-      height: 524,
-      child: Container(
+    return Positioned.fill(
+      child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -249,48 +315,46 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     );
   }
 
-  Widget _buildContent(BuildContext context) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    return Positioned(
-      left: 0,
-      right: 0,
-      bottom: 0,
-      child: Container(
-        height: 260 + bottomPadding,
-        padding: EdgeInsets.fromLTRB(24, 30, 24, 24 + bottomPadding),
-        decoration: const BoxDecoration(
-          color: AppColors.background,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(0)),
-        ),
-        child: SingleChildScrollView(
-          padding: EdgeInsets.zero,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                AppStrings.welcome,
-                style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                  color: AppColors.textAccent.withValues(alpha: 1),
-                  fontSize: 32,
-                ),
+  Widget _buildContent(
+    BuildContext context, {
+    required double bottomPadding,
+    required double height,
+  }) {
+    return Container(
+      height: height,
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(24, 30, 24, 24 + bottomPadding),
+      decoration: const BoxDecoration(
+        color: AppColors.background,
+      ),
+      child: SingleChildScrollView(
+        padding: EdgeInsets.zero,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              AppStrings.welcome,
+              style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                color: AppColors.textAccent.withValues(alpha: 1),
+                fontSize: 32,
               ),
-              const SizedBox(height: 16),
-              Text(
-                AppStrings.tagline,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: AppColors.greyMedium,
-                  fontSize: 16,
-                  height: 1.5,
-                ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              AppStrings.tagline,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: AppColors.greyMedium,
+                fontSize: 16,
+                height: 1.5,
               ),
-              const SizedBox(height: 24),
-              AppButton(
-                label: 'Continue',
-                onPressed: () => context.push(AppRoutes.loginOption),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 24),
+            AppButton(
+              label: 'Continue',
+              onPressed: () => context.push(AppRoutes.loginOption),
+            ),
+          ],
         ),
       ),
     );

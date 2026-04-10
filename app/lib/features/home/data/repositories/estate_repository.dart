@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_session.dart';
+import '../../../../core/network/media_url.dart';
 import '../models/estate_item.dart';
 import '../models/top_agent_item.dart';
 import '../models/top_location_item.dart';
@@ -229,7 +230,7 @@ class EstateRepository {
         final locationName = _extractLocationName(address);
         if (locationName.isEmpty || byName.containsKey(locationName)) continue;
         final locationImages = _readStringList(raw['images']);
-        final avatarUrl = locationImages.isNotEmpty ? locationImages.first : '';
+        final avatarUrl = locationImages.isNotEmpty ? MediaUrl.normalize(locationImages.first) : '';
         byName[locationName] = TopLocationItem(
           name: locationName,
           avatarUrl: avatarUrl,
@@ -251,7 +252,7 @@ class EstateRepository {
         final id = '${user['id'] ?? ''}';
         if (id.isEmpty || byId.containsKey(id)) continue;
         final name = '${user['name'] ?? ''}';
-        final avatarUrl = '${user['profile_picture_url'] ?? ''}';
+        final avatarUrl = MediaUrl.normalize('${user['profile_picture_url'] ?? ''}');
         if (name.isEmpty) continue;
         byId[id] = TopAgentItem(id: id, name: name, avatarUrl: avatarUrl);
       }
@@ -371,11 +372,11 @@ class EstateRepository {
     final images = _readStringList(json['images']);
     String imageUrl = '';
     if (images.isNotEmpty) {
-      imageUrl = '${images.first}';
+      imageUrl = MediaUrl.normalize('${images.first}');
     } else if (json['imageUrl'] != null) {
-      imageUrl = '${json['imageUrl']}';
+      imageUrl = MediaUrl.normalize('${json['imageUrl']}');
     } else if (json['image_url'] != null) {
-      imageUrl = '${json['image_url']}';
+      imageUrl = MediaUrl.normalize('${json['image_url']}');
     }
 
     final address = '${json['address'] ?? json['location'] ?? ''}'.trim();

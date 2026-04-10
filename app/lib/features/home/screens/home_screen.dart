@@ -37,7 +37,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final _repo = EstateRepository();
   late Future<_HomeData> _homeFuture;
   Set<String> _savedIds = <String>{};
-  /// Local override for "What do you need?" - null means use data.lookingFor
+  /// Local override for "What do you need?".
+  /// Null keeps the home screen on the default rent state.
   bool? _preferRent;
   String? _selectedLocation;
   String _selectedCategory = 'All';
@@ -251,13 +252,13 @@ class _HomeScreenState extends State<HomeScreen> {
           final data = snapshot.data ?? const _HomeData.empty();
           final filteredFeatured = _applyHomeFilters(
             data.featured,
-            preferRent: _effectivePreferRent(data),
+            preferRent: _effectivePreferRent(),
             selectedLocation: _selectedLocation,
             selectedCategory: _selectedCategory,
           );
           final filteredNearby = _applyHomeFilters(
             data.nearby,
-            preferRent: _effectivePreferRent(data),
+            preferRent: _effectivePreferRent(),
             selectedLocation: _selectedLocation,
             selectedCategory: _selectedCategory,
           );
@@ -503,8 +504,8 @@ class _HomeScreenState extends State<HomeScreen> {
           onTap: () => LocationModal.show(
                 context,
                 topLocations: data.topLocations,
-                initialLocation: _selectedLocation ?? data.currentLocation,
-                onSelect: (loc) => setState(() => _selectedLocation = loc),
+                initialLocation: _selectedLocation ?? 'All Locations',
+                onSelect: (loc) => setState(() => _selectedLocation = loc == 'All Locations' ? null : loc),
               ),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -518,7 +519,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const Icon(Icons.location_on, size: 15, color: AppColors.textSecondary),
                 const SizedBox(width: 8),
                 Text(
-                  _selectedLocation ?? data.currentLocation,
+                  _selectedLocation ?? 'All Locations',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         fontSize: 10,
                         color: AppColors.textPrimary,
@@ -731,39 +732,40 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildNeedToggle(BuildContext context, _HomeData data) {
-    final preferRent = _effectivePreferRent(data);
-    return GestureDetector(
-      onTap: () => setState(() => _preferRent = !preferRent),
-      child: Container(
-        height: 56,
-        decoration: BoxDecoration(
-          color: AppColors.greySoft2,
-          borderRadius: BorderRadius.circular(72),
-          border: Border.all(color: AppColors.greySoft2, width: 0.8),
-        ),
-        child: Stack(
-          children: [
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 200),
-              left: preferRent ? 8 : null,
-              right: preferRent ? null : 8,
-              top: 8,
-              child: Container(
-                width: 156,
-                height: 40,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFFE9BD36), AppColors.primary],
-                  ),
-                  borderRadius: BorderRadius.circular(72),
+    final preferRent = _effectivePreferRent();
+    return Container(
+      height: 56,
+      decoration: BoxDecoration(
+        color: AppColors.greySoft2,
+        borderRadius: BorderRadius.circular(72),
+        border: Border.all(color: AppColors.greySoft2, width: 0.8),
+      ),
+      child: Stack(
+        children: [
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 200),
+            left: preferRent ? 8 : null,
+            right: preferRent ? null : 8,
+            top: 8,
+            child: Container(
+              width: 156,
+              height: 40,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFE9BD36), AppColors.primary],
                 ),
+                borderRadius: BorderRadius.circular(72),
               ),
             ),
-            Row(
-              children: [
-                Expanded(
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: preferRent ? null : () => setState(() => _preferRent = true),
                   child: Center(
                     child: Text(
                       'I need to rent',
@@ -775,7 +777,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-                Expanded(
+              ),
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: preferRent ? () => setState(() => _preferRent = false) : null,
                   child: Center(
                     child: Text(
                       'I need to buy',
@@ -787,10 +793,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -825,8 +831,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  bool _effectivePreferRent(_HomeData data) {
-    return _preferRent ?? (data.lookingFor == 'buy' ? false : true);
+  bool _effectivePreferRent() {
+    if (_preferRent != null) return _preferRent!;
+    return true;
   }
 
   List<EstateItem> _applyHomeFilters(
@@ -836,7 +843,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required String selectedCategory,
   }) {
     final locationNeedle = selectedLocation?.trim().toLowerCase() ?? '';
-    return items.where((item) {
+    final baseItems = items.where((item) {
       final matchesNeed = preferRent
           ? (item.hasRentOption || !item.hasSellOption)
           : (item.hasSellOption || !item.hasRentOption);
@@ -847,13 +854,64 @@ class _HomeScreenState extends State<HomeScreen> {
         if (category != selectedCategory.toLowerCase()) return false;
       }
 
-      if (locationNeedle.isNotEmpty) {
-        final haystack = item.location.toLowerCase();
-        if (!haystack.contains(locationNeedle)) return false;
-      }
-
       return true;
     }).toList();
+
+    if (locationNeedle.isEmpty || locationNeedle == 'all locations') {
+      return baseItems;
+    }
+
+    final locationFiltered = baseItems
+        .where((item) => _matchesLocationFilter(item.location, locationNeedle))
+        .toList();
+
+    // If the selected label is stale or just a placeholder (for example "Jakarta, Indonesia")
+    // while the current database has different addresses, keep showing the available listings.
+    if (locationFiltered.isEmpty) {
+      return baseItems;
+    }
+
+    return locationFiltered;
+  }
+
+  bool _matchesLocationFilter(String itemLocation, String selectedLocation) {
+    final haystack = itemLocation.trim().toLowerCase();
+    final needle = selectedLocation.trim().toLowerCase();
+    if (haystack.isEmpty || needle.isEmpty) return false;
+
+    if (haystack.contains(needle)) return true;
+
+    final selectedSegments = needle
+        .split(',')
+        .map((segment) => segment.trim())
+        .where((segment) => segment.isNotEmpty)
+        .toList();
+    final locationSegments = haystack
+        .split(',')
+        .map((segment) => segment.trim())
+        .where((segment) => segment.isNotEmpty)
+        .toList();
+
+    for (final selectedSegment in selectedSegments) {
+      if (selectedSegment.length < 3) continue;
+      if (haystack.contains(selectedSegment)) return true;
+      for (final locationSegment in locationSegments) {
+        if (locationSegment.contains(selectedSegment) || selectedSegment.contains(locationSegment)) {
+          return true;
+        }
+      }
+    }
+
+    final selectedWords = needle
+        .split(RegExp(r'[\s,]+'))
+        .map((word) => word.trim())
+        .where((word) => word.length >= 4)
+        .toList();
+    for (final word in selectedWords) {
+      if (haystack.contains(word)) return true;
+    }
+
+    return false;
   }
 
   Widget _buildEmptyFilterState(String message) {
@@ -906,7 +964,7 @@ class _HomeData {
   String get currentLocation {
     if (topLocations.isNotEmpty) return topLocations.first.name;
     if (nearby.isNotEmpty) return nearby.first.location;
-    return 'Jakarta, Indonesia';
+    return 'All Locations';
   }
 }
 

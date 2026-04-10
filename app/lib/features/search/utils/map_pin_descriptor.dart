@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../core/network/media_url.dart';
 import '../../../core/theme/app_colors.dart';
 
 /// Creates a custom map pin BitmapDescriptor matching Figma **21-3729** (Pin / Real Estate),
@@ -29,7 +30,8 @@ Future<BitmapDescriptor> createMapPinDescriptor({
   Uint8List? imageBytes;
   if (imageUrl != null && imageUrl.isNotEmpty) {
     try {
-      final uri = Uri.parse(imageUrl);
+      final resolvedUrl = MediaUrl.normalize(imageUrl);
+      final uri = Uri.parse(resolvedUrl);
       final bundle = NetworkAssetBundle(uri);
       final data = await bundle.load(uri.toString());
       imageBytes = data.buffer.asUint8List();

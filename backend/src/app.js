@@ -158,6 +158,7 @@ if (process.env.NODE_ENV !== 'test') {
 
 // Serve uploaded files (e.g. profile images)
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use('/listing-images', express.static(path.join(process.cwd(), 'listing_images')));
 
 // Routes
 app.use('/api', routes);

@@ -38,6 +38,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/images/realistic_images/
     - assets/images/welcome/
     - assets/images/login_options/
     - assets/images/Estates Card/

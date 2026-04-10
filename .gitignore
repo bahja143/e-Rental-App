@@ -23,6 +23,10 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.hprof
+__pycache__/
+*.pyc
+%CD%/
 
 # Firebase / secrets
 firebase-adminsdk-*.json
