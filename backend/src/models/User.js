@@ -253,6 +253,10 @@ module.exports = (sequelize) => {
       foreignKey: 'user_id',
       as: 'userDevices',
     });
+    User.hasMany(models.ThirdPartyPayment, {
+      foreignKey: 'user_id',
+      as: 'thirdPartyPayments',
+    });
   };
 
   return User;

@@ -1,5 +1,5 @@
 export const BASE_URL = '/app/rental/dashboard';
-export const BASE_TITLE = ' | Hantariyo Admin Portal';
+export const BASE_TITLE = ' | Buul Admin Portal';
 
 export const CONFIG = {
   layout: 'vertical', // vertical, horizontal

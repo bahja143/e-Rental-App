@@ -517,14 +517,18 @@ td {
   }
 
   .auth-illustration-wrap {
-    max-width: 360px;
+    max-width: 430px;
     padding: 0 1rem;
     overflow: visible;
     img {
-      max-height: 240px;
+      max-height: 300px;
       object-fit: contain;
       filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15));
     }
+  }
+
+  .auth-brand-illustration {
+    width: min(430px, 100%);
   }
 
   .auth-illustration-caption {
@@ -639,6 +643,19 @@ td {
   -webkit-background-clip: text !important;
   background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
+}
+
+.auth-wrapper .auth-logo-wrap {
+  width: 92px;
+  height: 72px;
+  overflow: visible;
+
+  img {
+    width: 92px;
+    height: 72px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 8px rgba(31, 76, 107, 0.18));
+  }
 }
 
 .auth-wrapper .auth-content {
@@ -1106,4 +1123,12 @@ td {
   color: #6f7691;
   min-height: 48px;
   margin-bottom: 18px;
+}
+
+.buul-brand-logo {
+  width: 38px;
+  height: 34px;
+  object-fit: contain;
+  margin-right: 12px;
+  flex: 0 0 auto;
 }

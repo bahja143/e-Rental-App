@@ -248,6 +248,10 @@ module.exports = (sequelize) => {
       foreignKey: 'coupon_id',
       as: 'coupon',
     });
+    ListingRental.hasMany(models.ThirdPartyPayment, {
+      foreignKey: 'listing_rental_id',
+      as: 'thirdPartyPayments',
+    });
   };
 
   return ListingRental;

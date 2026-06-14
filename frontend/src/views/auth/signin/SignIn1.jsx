@@ -10,7 +10,7 @@ import useAuth from 'hooks/useAuth';
 
 import AuthLogin from './JWTLogin';
 
-import loginIllustration from '../../../assets/images/auth/login-illustration.svg';
+import brandLogo from '../../../assets/images/buul-logo-cropped.png';
 
 // ==============================|| SIGN IN 1 ||============================== //
 
@@ -24,9 +24,9 @@ const Signin1 = () => {
         <Row className="g-0 w-100 flex-grow-1 align-items-stretch">
           <Col lg={7} className="auth-login-left d-none d-lg-flex align-items-center justify-content-center">
             <div className="auth-illustration-wrap">
-              <img src={loginIllustration} alt="Rental home" className="img-fluid" />
+              <img src={brandLogo} alt="Buul" className="img-fluid auth-brand-illustration" />
               <div className="auth-illustration-caption">
-                <h5 className="fw-bold mb-2">Welcome to Hantario Rental</h5>
+                <h5 className="fw-bold mb-2">Welcome to Buul</h5>
                 <p className="mb-0">Manage listings, rentals, and bookings from one place.</p>
               </div>
             </div>
@@ -36,10 +36,10 @@ const Signin1 = () => {
             <Card className="auth-card border-0 shadow">
               <Card.Body>
                 <div className="text-center mb-3">
-                  <div className="auth-icon-wrap d-inline-flex align-items-center justify-content-center rounded-circle mb-2">
-                    <i className="feather icon-settings auth-icon text-brand-gold" />
+                  <div className="auth-logo-wrap d-inline-flex align-items-center justify-content-center mb-2">
+                    <img src={brandLogo} alt="Buul" />
                   </div>
-                <h5 className="mb-1 text-brand-primary fw-bold">Hantario Rental</h5>
+                <h5 className="mb-1 text-brand-primary fw-bold">Buul</h5>
                 <p className="text-muted small mb-0">Admin sign in</p>
                 </div>
 

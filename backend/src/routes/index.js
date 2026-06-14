@@ -41,6 +41,7 @@ const recentSearchesRoutes = require('./recentSearches');
 const publicListingsRoutes = require('./publicListings');
 const settingsRoutes = require('./settings');
 const adminReportsRoutes = require('./adminReports');
+const thirdPartyPaymentRoutes = require('./thirdPartyPayments');
 
 // Mount routes
 router.use('/users', userRoutes);
@@ -82,6 +83,7 @@ router.use('/recent-searches', recentSearchesRoutes);
 router.use('/public/listings', publicListingsRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/admin/reports', adminReportsRoutes);
+router.use('/third-party-payments', thirdPartyPaymentRoutes);
 
 // Default route
 router.get('/', (req, res) => {

@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('./loadEnv');
 
 const env = process.env.NODE_ENV || 'development';
 const dialect = env === 'test' ? 'sqlite' : (process.env.DB_DIALECT || 'mysql');

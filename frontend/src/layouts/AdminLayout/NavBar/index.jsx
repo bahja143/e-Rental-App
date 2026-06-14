@@ -7,6 +7,7 @@ import NavRight from './NavRight';
 
 import { ConfigContext } from '../../../contexts/ConfigContext';
 import * as actionType from '../../../store/actions';
+import brandLogo from '../../../assets/images/buul-logo-cropped.png';
 
 // ==============================|| NAVBAR ||============================== //
 
@@ -47,10 +48,8 @@ const NavBar = () => {
           <span />
         </Link>
         <Link to="/app/rental/dashboard" className="b-brand">
-          <div className="b-bg">
-            <i className="feather icon-home" />
-          </div>
-          <span className="b-title">Hantariyo</span>
+          <img src={brandLogo} alt="Buul" className="buul-brand-logo" />
+          <span className="b-title">Buul</span>
         </Link>
         <Link to="#" className={moreClass.join(' ')} onClick={() => setMoreToggle(!moreToggle)}>
           <i className="feather icon-more-vertical" />

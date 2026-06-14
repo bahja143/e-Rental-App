@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Badge, Col, Row, Spinner, Table } from 'react-bootstrap';
 import Chart from 'react-apexcharts';
-import { getAdminOverview, getCompanyEarnings, getWithdrawBalances } from '../../services/rentalApi';
+import { getAdminOverview, getCompanyEarnings, getThirdPartyPayments, getWithdrawBalances } from '../../services/rentalApi';
 
 const money = (value) => `$${Number(value || 0).toLocaleString()}`;
 
@@ -11,19 +11,24 @@ const ReportsHub = () => {
   const [overview, setOverview] = useState(null);
   const [earnings, setEarnings] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
+  const [thirdPartyPayments, setThirdPartyPayments] = useState([]);
+  const [thirdPartySummary, setThirdPartySummary] = useState({});
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const [overviewRes, earningsRes, withdrawalRes] = await Promise.all([
+      const [overviewRes, earningsRes, withdrawalRes, thirdPartyRes] = await Promise.all([
         getAdminOverview({ months: 12, recentLimit: 12 }),
         getCompanyEarnings({ limit: 8, page: 1 }),
         getWithdrawBalances({ limit: 8, page: 1, status: 'requested' }),
+        getThirdPartyPayments({ limit: 10, page: 1 }),
       ]);
       setOverview(overviewRes.data ?? null);
       setEarnings(earningsRes.data?.data ?? []);
       setWithdrawals(withdrawalRes.data?.data ?? []);
+      setThirdPartyPayments(thirdPartyRes.data?.data ?? []);
+      setThirdPartySummary(thirdPartyRes.data?.summary ?? {});
     } catch (err) {
       console.error(err);
       setError(err?.error || err?.message || 'Failed to load reports.');
@@ -40,6 +45,8 @@ const ReportsHub = () => {
   const finances = overview?.finances ?? {};
   const metrics = overview?.metrics ?? {};
   const topListings = overview?.topListings ?? [];
+  const successfulThirdParty = thirdPartySummary.success ?? { count: 0, amount: 0 };
+  const failedThirdParty = thirdPartySummary.failed ?? { count: 0, amount: 0 };
 
   const revenueChartOptions = useMemo(
     () => ({
@@ -113,6 +120,30 @@ const ReportsHub = () => {
             <div className="metric-title">Active Promotions</div>
             <div className="metric-value">{metrics.activePromotions ?? 0}</div>
             <div className="panel-note mt-2">Live promotional packages currently influencing listings.</div>
+          </div>
+        </Col>
+      </Row>
+
+      <Row className="g-4 mb-1">
+        <Col md={4}>
+          <div className="analytics-metric-box">
+            <div className="metric-title">Third-Party Payment Volume</div>
+            <div className="metric-value">{money(successfulThirdParty.amount)}</div>
+            <div className="panel-note mt-2">{successfulThirdParty.count} approved Waafi payment(s).</div>
+          </div>
+        </Col>
+        <Col md={4}>
+          <div className="analytics-metric-box">
+            <div className="metric-title">Failed Third-Party Payments</div>
+            <div className="metric-value">{failedThirdParty.count}</div>
+            <div className="panel-note mt-2">{money(failedThirdParty.amount)} in failed attempts.</div>
+          </div>
+        </Col>
+        <Col md={4}>
+          <div className="analytics-metric-box">
+            <div className="metric-title">Payment Provider</div>
+            <div className="metric-value">Waafi</div>
+            <div className="panel-note mt-2">Mobile wallet payments for listing rental bookings.</div>
           </div>
         </Col>
       </Row>
@@ -203,6 +234,47 @@ const ReportsHub = () => {
           </div>
         </Col>
       </Row>
+
+      <div className="advanced-panel mt-4">
+        <div className="advanced-panel-header">
+          <h5>
+            <i className="feather icon-smartphone me-2" />
+            Third-Party Payments Integration Report
+          </h5>
+        </div>
+        {thirdPartyPayments.length === 0 ? (
+          <div className="text-muted">No third-party payment attempts found.</div>
+        ) : (
+          <Table hover responsive className="rental-table mb-0">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Provider</th>
+                <th>User</th>
+                <th>Listing</th>
+                <th>Status</th>
+                <th>Amount</th>
+                <th>Reference</th>
+              </tr>
+            </thead>
+            <tbody>
+              {thirdPartyPayments.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.createdAt ? new Date(row.createdAt).toLocaleString() : '-'}</td>
+                  <td className="text-capitalize">{row.provider}</td>
+                  <td>{row.user?.name ?? row.user_id}</td>
+                  <td>{row.listingRental?.listing?.title ?? (row.metadata?.list_id ? `Listing #${row.metadata.list_id}` : '-')}</td>
+                  <td>
+                    <Badge bg={row.status === 'success' ? 'success' : row.status === 'failed' ? 'danger' : 'warning'}>{row.status}</Badge>
+                  </td>
+                  <td className="fw-bold">{money(row.amount)}</td>
+                  <td className="text-monospace">{row.transaction_ref}</td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </div>
 
       <div className="advanced-panel mt-4">
         <div className="advanced-panel-header">

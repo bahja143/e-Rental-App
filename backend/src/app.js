@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('./config/loadEnv');
 const express = require('express');
 const mongoose = require('mongoose');
 const { createClient } = require('redis');

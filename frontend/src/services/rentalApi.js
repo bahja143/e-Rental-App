@@ -124,3 +124,6 @@ export const getWithdrawBalances = (params = {}) => api.get('/withdraw-balances'
 export const createWithdrawBalance = (data) => api.post('/withdraw-balances', data);
 export const updateWithdrawBalance = (id, data) => api.put(`/withdraw-balances/${id}`, data);
 export const deleteWithdrawBalance = (id) => api.delete(`/withdraw-balances/${id}`);
+
+// Third-party payments
+export const getThirdPartyPayments = (params = {}) => api.get('/admin/reports/third-party-payments', { params });

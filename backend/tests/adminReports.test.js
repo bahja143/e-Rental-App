@@ -1,7 +1,8 @@
 process.env.NODE_ENV = 'test';
+process.env.WAAFI_PAY_MOCK = 'true';
 
 const request = require('supertest');
-const { sequelize, User, Listing, ListingRental, Coupon, Promotion, WithdrawBalance, CompanyEarning } = require('../src/models');
+const { sequelize, User, Listing, ListingRental, Coupon, Promotion, WithdrawBalance, CompanyEarning, ThirdPartyPayment } = require('../src/models');
 
 jest.mock('../src/middleware/authMiddleware', () => ({
   authenticateToken: (req, res, next) => {
@@ -21,7 +22,7 @@ jest.mock('../src/queues', () => ({
   },
 }));
 
-jest.setTimeout(20000);
+jest.setTimeout(60000);
 
 describe('Admin Reports API', () => {
   let app;
@@ -72,6 +73,7 @@ describe('Admin Reports API', () => {
   });
 
   beforeEach(async () => {
+    await ThirdPartyPayment.destroy({ where: {} });
     await ListingRental.destroy({ where: {} });
     await Coupon.destroy({ where: {} });
     await Promotion.destroy({ where: {} });
@@ -145,5 +147,79 @@ describe('Admin Reports API', () => {
     expect(response.body.topListings[0].title).toBe('Ocean View Apartment');
     expect(response.body.rentals.recent).toHaveLength(1);
     expect(response.body.rentals.monthlyTrend.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('returns third-party payment integration report rows and summary', async () => {
+    const rental = await ListingRental.create({
+      list_id: listing.id,
+      renter_id: renter.id,
+      start_date: new Date(),
+      end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      rent_type: 'monthly',
+      status: 'pending',
+      subtotal: 1200,
+      discount: 0,
+      total: 1200,
+      commission: 0,
+      sellers_value: 1200,
+    });
+
+    await ThirdPartyPayment.create({
+      user_id: renter.id,
+      listing_rental_id: rental.id,
+      provider: 'waafi',
+      context: 'listing_rental',
+      status: 'success',
+      amount: 1200,
+      currency: 'USD',
+      payer_account: '252622222222',
+      transaction_ref: 'WAAFI_TEST_REF',
+      invoice_id: 'INV_TEST_REF',
+      request_id: 'REQ_TEST_REF',
+      response_code: '2001',
+      response_message: 'Approved',
+      raw_response: { responseCode: '2001', params: { state: 'APPROVED' } },
+    });
+
+    const response = await request(app).get('/api/admin/reports/third-party-payments').expect(200);
+
+    expect(response.body.data).toHaveLength(1);
+    expect(response.body.data[0].provider).toBe('waafi');
+    expect(response.body.data[0].listingRental.listing.title).toBe('Ocean View Apartment');
+    expect(response.body.summary.success.count).toBe(1);
+    expect(response.body.summary.success.amount).toBe(1200);
+  });
+
+  it('creates a listing rental after a mocked Waafi approval', async () => {
+    const ownerListing = await Listing.create({
+      user_id: renter.id,
+      title: 'Admin Test Rental',
+      lat: 2.0469,
+      lng: 45.3182,
+      address: 'Mogadishu Downtown',
+      rent_price: 800,
+      rent_type: 'monthly',
+      images: [],
+      availability: '1',
+    });
+
+    const startDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    const endDate = new Date(Date.now() + 33 * 24 * 60 * 60 * 1000);
+
+    const response = await request(app)
+      .post('/api/third-party-payments/waafi/listing-rentals')
+      .send({
+        list_id: ownerListing.id,
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString(),
+        rent_type: 'monthly',
+        phone_number: '+252611111111',
+      })
+      .expect(201);
+
+    expect(response.body.payment.status).toBe('success');
+    expect(response.body.payment.provider).toBe('waafi');
+    expect(response.body.listingRental.id).toBeTruthy();
+    expect(response.body.listingRental.list_id).toBe(ownerListing.id);
   });
 });

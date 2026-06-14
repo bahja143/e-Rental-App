@@ -1,6 +1,7 @@
 // axios
 import axios from 'axios';
-const axiosServices = axios.create({ baseURL: import.meta.env.VITE_APP_API_URL || 'http://68.183.225.40:8080/api' });
+
+const axiosServices = axios.create({ baseURL: import.meta.env.VITE_APP_API_URL || '/api' });
 
 // ==============================|| AXIOS SERVICES ||============================== //
 

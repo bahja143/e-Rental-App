@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 // project import
 import { ConfigContext } from '../../../../contexts/ConfigContext';
 import * as actionType from '../../../../store/actions';
+import brandLogo from '../../../../assets/images/buul-logo-cropped.png';
 
 // ==============================|| NAV LOGO ||============================== //
 
@@ -21,10 +22,8 @@ const NavLogo = () => {
     <React.Fragment>
       <div className="navbar-brand header-logo">
         <Link to="/app/rental/dashboard" className="b-brand">
-          <div className="b-bg">
-            <i className="feather icon-home" />
-          </div>
-          <span className="b-title">Hantariyo</span>
+          <img src={brandLogo} alt="Buul" className="buul-brand-logo" />
+          <span className="b-title">Buul</span>
         </Link>
         <Link to="#" className={toggleClass.join(' ')} id="mobile-collapse" onClick={() => dispatch({ type: actionType.COLLAPSE_MENU })}>
           <span />

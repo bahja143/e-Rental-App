@@ -12,7 +12,7 @@ const RentalSettings = () => {
     maintenanceMode: false,
     newRegistrationsEnabled: true,
     maxListingsPerUser: 50,
-    appName: 'Hantario Rental'
+    appName: 'Buul'
   });
 
   useEffect(() => {
@@ -24,7 +24,7 @@ const RentalSettings = () => {
           maintenanceMode: Boolean(data.maintenanceMode),
           newRegistrationsEnabled: data.newRegistrationsEnabled !== false,
           maxListingsPerUser: Number(data.maxListingsPerUser) || 50,
-          appName: data.appName ?? 'Hantario Rental'
+          appName: data.appName ?? 'Buul'
         });
       })
       .catch((e) => {
@@ -90,7 +90,7 @@ const RentalSettings = () => {
                   <Form.Control
                     value={form.appName}
                     onChange={(e) => handleChange('appName', e.target.value)}
-                    placeholder="Hantario Rental"
+                    placeholder="Buul"
                     className="form-control-lg"
                   />
                   <Form.Text className="text-muted">Display name for the application.</Form.Text>
